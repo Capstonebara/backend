@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        table {
+            font-family: Arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+        th {
+            cursor: pointer; /* Change cursor to indicate it's clickable */
+        }
+        th:hover {
+            text-decoration: underline; /* Underline on hover for better UX */
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        th.ascending::after {
+            content: " ▲"; /* Up arrow */
+        }
+        th.descending::after {
+            content: " ▼"; /* Down arrow */
+        }
+    </style>
+    <script>
+        function sortTable(columnIndex) {
+            var table = document.getElementById("userTable");
+            var rows = Array.from(table.rows).slice(1); // Get all rows except the header
+            var header = table.rows[0].cells[columnIndex];
+
+            // Determine current sort direction
+            var ascending = !header.classList.contains("ascending");
+
+            // Sort rows
+            var sortedRows = rows.sort(function(rowA, rowB) {
+                var cellA = rowA.cells[columnIndex].innerText.trim();
+                var cellB = rowB.cells[columnIndex].innerText.trim();
+
+                if (isNaN(cellA) || isNaN(cellB)) {
+                    // Compare strings
+                    return ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+                } else {
+                    // Compare numbers
+                    return ascending ? cellA - cellB : cellB - cellA;
+                }
+            });
+
+            // Remove existing rows and re-add sorted rows
+            var tbody = table.querySelector("tbody");
+            tbody.innerHTML = ""; // Clear the current table body
+            sortedRows.forEach(function(row) {
+                tbody.appendChild(row);
+            });
+
+            // Update header styles
+            Array.from(header.parentElement.cells).forEach(function(cell) {
+                cell.classList.remove("ascending", "descending");
+            });
+            header.classList.add(ascending ? "ascending" : "descending");
+        }
+    </script>
+</head>
+<body>
+    <h2>User Database</h2>
+    <table id="userTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">ID</th>
+                <th onclick="sortTable(1)">Tên</th>
+                <th onclick="sortTable(2)">Email</th>
+                <th onclick="sortTable(3)">Xác Thực</th>
+                <th onclick="sortTable(4)">Lễ</th>
+                <th onclick="sortTable(5)">Tiệc</th>
+                <th onclick="sortTable(6)">Cả hai</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.name }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ 'Yes' if user.reg else 'No' }}</td>
+                <td>{{ 'Yes' if user.le else 'No' }}</td>
+                <td>{{ 'Yes' if user.tiec else 'No' }}</td>
+                <td>{{ 'Yes' if user.cahai else 'No' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
