@@ -85,7 +85,7 @@ def process_embedding(base_folder: str, embed_folder: str, specific_folder: str)
         return None
 
 @router.post("/embed")
-async def embed(file: UploadFile = File(...)):
+async def embed(file: UploadFile = File(...), folder_name: str = None):
     # Create necessary folders if they don't exist
     zip_folder = os.path.join("data", "zips")
     pic_folder = os.path.join("data", "pics")
@@ -93,8 +93,11 @@ async def embed(file: UploadFile = File(...)):
     
     os.makedirs(zip_folder, exist_ok=True)
     
+    # Use folder_name if provided, otherwise use filename
+    zip_filename = f"{folder_name}.zip"
+    
     # Save uploaded zip file
-    zip_path = os.path.join(zip_folder, file.filename)
+    zip_path = os.path.join(zip_folder, zip_filename)
     try:
         with open(zip_path, "wb") as buffer:
             content = await file.read()
@@ -107,7 +110,7 @@ async def embed(file: UploadFile = File(...)):
     
     # Process zip file
     try:
-        extracted_folder = process_zip(zip_folder, pic_folder, file.filename)
+        extracted_folder = process_zip(zip_folder, pic_folder, zip_filename)
         if not extracted_folder:
             return {
                 "ok": False,
