@@ -1,10 +1,9 @@
 from fastapi import APIRouter, BackgroundTasks, UploadFile, File
 import os
 import json
-import zipfile
 from datetime import datetime
 import pytz
-from services.extract_embedding import embed_images
+from services.extract_embedding import embed_images, extract_zip
 
 router = APIRouter()
 
@@ -19,20 +18,8 @@ def process_zip(zip_folder: str, pic_folder: str, zip_filename: str):
     
     zip_path = os.path.join(zip_folder, zip_filename)
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            # Create a subfolder with the same name as the zip file (without .zip)
-            subfolder_name = os.path.splitext(zip_filename)[0]
-            extract_path = os.path.join(pic_folder, subfolder_name)
-            
-            # Create subfolder if it doesn't exist
-            if not os.path.exists(extract_path):
-                os.makedirs(extract_path)
-            
-            # Extract all files
-            zip_ref.extractall(extract_path)
-            print(f"Successfully extracted {zip_filename} to {extract_path}")
-            return subfolder_name
-            
+        subfolder_name = extract_zip(zip_path, zip_filename, pic_folder)
+        return subfolder_name    
     except Exception as e:
         print(f"Error processing {zip_filename}: {str(e)}")
         return None
@@ -95,7 +82,6 @@ async def embed(file: UploadFile = File(...), folder_name: str = None):
     
     # Use folder_name if provided, otherwise use filename
     zip_filename = f"{folder_name}.zip"
-    
     # Save uploaded zip file
     zip_path = os.path.join(zip_folder, zip_filename)
     try:

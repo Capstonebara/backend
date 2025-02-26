@@ -2,15 +2,23 @@ import os
 import zipfile, json
 from models.model_embedding import EmbeddingModel
 
-# Khởi tạo hàm giải nén file zip
-def extract_zip(zip_path, extract_to):
-    if not os.path.exists(extract_to):
-        os.makedirs(extract_to)
-
+#extract zip file
+def extract_zip(zip_path, zip_filename, pic_folder):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_to)
+            # Create a subfolder with the same name as the zip file (without .zip)
+            subfolder_name = os.path.splitext(zip_filename)[0]
+            extract_path = os.path.join(pic_folder, subfolder_name)
+            
+            # Create subfolder if it doesn't exist
+            if not os.path.exists(extract_path):
+                os.makedirs(extract_path)
+            
+            # Extract all files
+            zip_ref.extractall(extract_path)
+            print(f"Successfully extracted {zip_filename} to {extract_path}")
+            return subfolder_name
 
-# Khởi tạo hàm embedding ảnh
+#embed images
 def embed_images(extracted_dir):
     embedding_model = EmbeddingModel()  
     results = []
