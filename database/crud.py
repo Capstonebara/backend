@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from . import models
 
 
+
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
@@ -98,3 +99,24 @@ def update_registration_cahai_reset(db: Session, user_id: int, status: int = 0):
         db.refresh(db_user)
         return db_user
     return None
+
+# Create account
+def create_account(db: Session, username: str, password: str, pwd_context):
+    # Check if username already exists
+    existing_account = db.query(models.Acount).filter(models.Acount.user == username).first()
+    if existing_account:
+        return {"success": False, "message": "Username already exists"}
+    
+    # Hash the password
+    hashed_password = pwd_context.hash(password)
+    
+    # Create new account
+    db_account = models.Acount(user=username, password=hashed_password)
+    try:
+        db.add(db_account)
+        db.commit()
+        db.refresh(db_account)
+        return {"success": True, "message": "Account created successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}

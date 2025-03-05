@@ -4,8 +4,12 @@ from sqlalchemy.orm import Session
 
 from database import models, crud
 from database.database import SessionLocal, engine
+from passlib.context import CryptContext
+
+from pydantic import BaseModel
 
 users = APIRouter()
+accounts = APIRouter()
 
 # Tạo tất cả các bảng trong CSDL
 models.Base.metadata.create_all(bind=engine)
@@ -17,6 +21,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Add this class for request validation
+class AccountCreate(BaseModel):
+    user: str
+    password: str
 
 
 # @users.post("/users/")
@@ -39,3 +48,14 @@ def get_db():
 #     users = db.query(models.User).all()
     
 #     return templates.TemplateResponse("users_table.html", {"request": {}, "users": users})
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+@accounts.post("/register/")
+def register_account(account: AccountCreate, db: Session = Depends(get_db)):
+    return crud.create_account(
+        db=db, 
+        username=account.user, 
+        password=account.password, 
+        pwd_context=pwd_context
+    )
