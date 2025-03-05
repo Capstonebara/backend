@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 from . import models
+import jwt
+import datetime
 
 
 
@@ -120,3 +122,18 @@ def create_account(db: Session, username: str, password: str, pwd_context):
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
+
+# create access token    
+def create_access_token(username:str, password:str, expires_delta: int, algorithm: str, secret_key: str):
+    to_encode = {"sub": username, "password": password, "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_delta)}
+    encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=algorithm)
+    return encoded_jwt
+
+# verify account
+def verify_account(db:Session, username:str, password:str, pwd_context):
+    account = db.query(models.Acount).filter(models.Acount.user == username).first()
+    if not account:
+        return "Account not found"
+    
+    if not pwd_context.verify(password, account.password):
+        return "Incorrect password"

@@ -8,6 +8,8 @@ from passlib.context import CryptContext
 
 from pydantic import BaseModel
 
+import secrets
+
 users = APIRouter()
 accounts = APIRouter()
 
@@ -22,10 +24,7 @@ def get_db():
     finally:
         db.close()
 
-# Add this class for request validation
-class AccountCreate(BaseModel):
-    user: str
-    password: str
+
 
 
 # @users.post("/users/")
@@ -49,13 +48,49 @@ class AccountCreate(BaseModel):
     
 #     return templates.TemplateResponse("users_table.html", {"request": {}, "users": users})
 
+
+# Add this class for request validation
+class Account(BaseModel):
+    user: str
+    password: str
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+SECRET_KEY = secrets.token_hex(32)
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 @accounts.post("/register/")
-def register_account(account: AccountCreate, db: Session = Depends(get_db)):
+def register_account(account: Account, db: Session = Depends(get_db)):
     return crud.create_account(
         db=db, 
         username=account.user, 
         password=account.password, 
         pwd_context=pwd_context
     )
+
+@accounts.post("/login/")
+def login(account: Account, db: Session = Depends(get_db)):
+    verify = crud.verify_account(
+        db=db, 
+        username=account.user, 
+        password=account.password, 
+        pwd_context=pwd_context
+    )
+
+    if verify == "Account not found" or verify == "Incorrect password":
+        return {
+            "success": False,
+            "message": verify
+        }
+    
+    access_token = crud.create_access_token(
+        username=account.user, 
+        password=account.password, 
+        expires_delta=ACCESS_TOKEN_EXPIRE_MINUTES, 
+        algorithm=ALGORITHM, 
+        secret_key=SECRET_KEY
+    )
+    return {
+        "access_token": access_token
+    }
