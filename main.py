@@ -1,12 +1,12 @@
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Security
 from middleware import CORSMiddleware, LogProcessAndTime
 from routes.collectdata import router
 from routes.authentication import authen
 from routes.createUser import users
 from routes.createUser import accounts
 
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasic, HTTPBasicCredentials, OAuth2PasswordBearer
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from dotenv import load_dotenv
 from fastapi.openapi.utils import get_openapi
@@ -26,17 +26,55 @@ security = HTTPBasic()
 
 def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
     if not credentials.username or not credentials.password:
-        raise HTTPException(status_code=401, detail="Unauthorized", headers={"WWW-Authenticate": "Basic"})
+        raise HTTPException(
+            status_code=401, 
+            detail="Unauthorized", 
+            headers={"WWW-Authenticate": "Basic"}
+        )
     
-    if credentials.username != 'maidung' or credentials.password != '123':
-        raise HTTPException(status_code=401, detail="Unauthorized", headers={"WWW-Authenticate": "Basic"})
+    if credentials.username != VALID_USERNAME or credentials.password != VALID_PASSWORD:
+        raise HTTPException(
+            status_code=401, 
+            detail="Unauthorized", 
+            headers={"WWW-Authenticate": "Basic"}
+        )
     
     return credentials.username
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title="Your API",
+        version="1.0.0",
+        description="API documentation",
+        routes=app.routes,
+    )
+
+    # Add JWT bearer security scheme
+    openapi_schema["components"]["securitySchemes"] = {
+        "Bearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    }
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
 
 # Override Swagger UI route
 @app.get("/docs", include_in_schema=False)
 def get_docs(username: str = Depends(authenticate)):
-    return get_swagger_ui_html(openapi_url=app.openapi_url, title="Docs")
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url, 
+        title="API Documentation",
+        swagger_ui_parameters={"persistAuthorization": True}
+    )
 
 # Optional: Protect the ReDoc route too
 @app.get("/redoc", include_in_schema=False)

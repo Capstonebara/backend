@@ -1,16 +1,23 @@
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Response
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
 
 from database import models, crud
 from database.database import SessionLocal, engine
 from passlib.context import CryptContext
 
 from pydantic import BaseModel
+import os
 
 import secrets
+
+# Load environment variables
+load_dotenv()
 
 users = APIRouter()
 accounts = APIRouter()
@@ -53,13 +60,16 @@ class Account(BaseModel):
     user: str
     password: str
 
-class AccessToken(BaseModel):
-    token: str
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/login",
+    scheme_name="Bearer"  # This will show up in Swagger UI
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 SECRET_KEY = secrets.token_hex(32)
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
 
 @accounts.post("/register/")
 def register_account(account: Account, db: Session = Depends(get_db)):
@@ -71,7 +81,7 @@ def register_account(account: Account, db: Session = Depends(get_db)):
     )
 
 @accounts.post("/login/")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     verify = crud.verify_account(
         db=db,
         username=form_data.username,
@@ -92,22 +102,45 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         algorithm=ALGORITHM, 
         secret_key=SECRET_KEY
     )
+    
+    # Set the token in header
+    response.headers["Authorization"] = f"Bearer {access_token}"
+    
     return {
         "success": True,
-        "access_token": access_token
+        "message": "Login successful"
     }
 
-@accounts.post("/accounts/me")  # Changed from GET to POST since we're using request body
-def get_username_from_token(request: AccessToken):
-    username = crud.decode_access_token(request.token, SECRET_KEY, ALGORITHM)
+
+@accounts.get("/accounts/me")
+def get_username_from_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    username = crud.decode_access_token(db=db, token=token, secret_key=SECRET_KEY, algorithm=ALGORITHM)
     if not username:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return {"username": username}
 
-@accounts.post("/accounts/phone")
-def get_phone_number_from_username(username:str, request: AccessToken, db: Session = Depends(get_db)):
-    phone = crud.get_phone_number(db=db, username= username ,token=request.token, secret_key=SECRET_KEY, algorithm=ALGORITHM)
+@accounts.get("/accounts/phone")
+def get_phone_number_from_username(
+    username: str,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    phone = crud.get_phone_number(
+        db=db,
+        username=username,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
     if not phone:
-        raise HTTPException(status_code=401, detail="Invalid token or Username does not exist")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token or Username does not exist",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return {"phone": phone}
     

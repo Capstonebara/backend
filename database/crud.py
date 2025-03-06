@@ -145,17 +145,19 @@ def check_username_exists(db:Session, username:str):
     return False
 
 # decode access token    
-def decode_access_token(token: str, secret_key: str, algorithm: str):
+def decode_access_token(db:Session, token: str, secret_key: str, algorithm: str):
     try:
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
         username = payload.get("sub")
+        if not check_username_exists(db, username):
+            return None
         return username
     except:
         return None
     
 def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algorithm:str):
-    username_exists = decode_access_token(token, secret_key, algorithm)
-    if not check_username_exists(db, username_exists):
+    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
+    if not check_username_exists(db, username_exists) or username_exists != username:
         return None
     # Query all residents matching the username
     residents = db.query(models.Resident).filter(
