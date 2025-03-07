@@ -4,3 +4,9 @@ __pycache__/
 # Optionally ignore __init__.py files (usually these are tracked,
 # so consider if you really want to ignore them)
 __init__.py
+
+# Ignore all database files
+*.db
+
+# Ignore logs directory
+logs/
