@@ -143,4 +143,25 @@ def get_phone_number_from_username(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return {"phone": phone}
-    
+
+
+@users.get("/data/users")
+def get_all_information_user(
+    username: str,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    data = crud.get_information_by_username(
+        db=db,
+        username=username,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    if not data:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token or Username does not exist",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return data

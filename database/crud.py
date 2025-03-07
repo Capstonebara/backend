@@ -168,3 +168,30 @@ def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algori
         # Return list of phone numbers
         return [resident.phone for resident in residents]
     return []
+
+# get all information resident
+def get_information_by_username(db: Session, username: str, token: str, secret_key: str, algorithm: str):
+    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
+    if not check_username_exists(db, username_exists) or username_exists != username:
+        return []
+
+    residents = db.query(models.Resident).filter(models.Resident.user_name == username).all()
+    if not residents:
+        return []
+
+    users = []
+    for resident in residents:
+        user = {
+            "id": resident.id,
+            "username": resident.user_name,
+            "name": resident.name,
+            "apartment": resident.apartment_number,
+            "gender": resident.gender,
+            "phone": resident.phone,
+            "email": resident.email,
+            "photoUrl": "/placeholder.svg?height=40&width=40"
+        }
+        users.append(user)
+    
+    return users
+    

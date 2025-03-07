@@ -1,6 +1,7 @@
 
 from fastapi import FastAPI, Depends, HTTPException, Security
-from middleware import CORSMiddleware, LogProcessAndTime
+from middleware.http import LogProcessAndTime
+from middleware.corn import CORSMiddleware
 from routes.collectdata import router
 from routes.authentication import authen
 from routes.createUser import users
@@ -20,6 +21,15 @@ VALID_USERNAME = os.getenv("VALID_USERNAME")
 VALID_PASSWORD = os.getenv("VALID_PASSWORD")
 
 app = FastAPI(docs_url=None, redoc_url=None)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],  # Đảm bảo header Authorization được phép
+    expose_headers=["Authorization"],  # Cho phép frontend truy cập header này
+)
 
 # Set up HTTP Basic Authentication
 security = HTTPBasic()
