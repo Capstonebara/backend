@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from . import models
 import jwt
 import datetime
+from pydantic import BaseModel
 
 
 
@@ -195,3 +196,36 @@ def get_information_by_username(db: Session, username: str, token: str, secret_k
     
     return users
     
+
+class UserCreate(BaseModel):
+    username: str
+    name: str
+    apartment_number: str
+    gender: str
+    phone: str
+    email: str
+
+# create user
+def create_new_user(user: UserCreate, db: Session, token: str, secret_key: str, algorithm: str):
+    # Decode the token to get the username
+    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
+    if not check_username_exists(db, username_exists):
+        return {"success": False, "message": "Invalid token"}
+
+    # Create new user
+    db_user = models.Resident(
+        user_name=user.username,
+        name=user.name,
+        apartment_number=user.apartment_number,
+        gender=user.gender,
+        phone=user.phone,
+        email=user.email.lower()
+    )
+    try:
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return {"success": True, "message": "User created successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}

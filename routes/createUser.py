@@ -145,7 +145,7 @@ def get_phone_number_from_username(
     return {"phone": phone}
 
 
-@users.get("/data/users")
+@users.get("/residents/users")
 def get_all_information_user(
     username: str,
     token: str = Depends(oauth2_scheme),
@@ -165,3 +165,24 @@ def get_all_information_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return data
+
+class UserCreate(BaseModel):
+    username: str
+    name: str
+    apartment_number: str
+    gender: str
+    phone: str
+    email: str
+
+@users.post("/residents/create")
+def create_new_user(user: UserCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    result = crud.create_new_user(
+        user=user,
+        db=db,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    return result
+    
+    
