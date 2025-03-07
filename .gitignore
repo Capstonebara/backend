@@ -10,3 +10,6 @@ __init__.py
 
 # Ignore logs directory
 logs/
+
+# Ignore environment variables file
+.env
