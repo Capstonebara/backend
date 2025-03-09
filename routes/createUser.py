@@ -21,6 +21,7 @@ load_dotenv()
 
 users = APIRouter()
 accounts = APIRouter()
+residents = APIRouter()
 
 # Tạo tất cả các bảng trong CSDL
 models.Base.metadata.create_all(bind=engine)
@@ -59,6 +60,14 @@ def get_db():
 class Account(BaseModel):
     user: str
     password: str
+
+class ResidentsCreate(BaseModel):
+    username: str
+    name: str
+    apartment_number: str
+    gender: str
+    phone: str
+    email: str
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/login",
@@ -145,7 +154,7 @@ def get_phone_number_from_username(
     return {"phone": phone}
 
 
-@users.get("/residents/users")
+@residents.get("/residents/users")
 def get_all_information_user(
     username: str,
     token: str = Depends(oauth2_scheme),
@@ -166,16 +175,8 @@ def get_all_information_user(
         )
     return data
 
-class UserCreate(BaseModel):
-    username: str
-    name: str
-    apartment_number: str
-    gender: str
-    phone: str
-    email: str
-
-@users.post("/residents/create")
-def create_new_user(user: UserCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+@residents.post("/residents/create")
+def create_new_user(user: ResidentsCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     result = crud.create_new_user(
         user=user,
         db=db,
@@ -183,6 +184,11 @@ def create_new_user(user: UserCreate, db: Session = Depends(get_db), token: str 
         secret_key=SECRET_KEY,
         algorithm=ALGORITHM
     )
+    return result
+
+@residents.delete("/residents/delete")
+def delete_user(user_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    result = crud.delete_user_by_id(db=db, user_id=user_id, token=token, secret_key=SECRET_KEY, algorithm=ALGORITHM)
     return result
     
     

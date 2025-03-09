@@ -156,6 +156,7 @@ def decode_access_token(db:Session, token: str, secret_key: str, algorithm: str)
     except:
         return None
     
+#get phone number
 def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algorithm:str):
     username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
     if not check_username_exists(db, username_exists) or username_exists != username:
@@ -211,9 +212,21 @@ def create_new_user(user: UserCreate, db: Session, token: str, secret_key: str, 
     username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
     if not check_username_exists(db, username_exists):
         return {"success": False, "message": "Invalid token"}
+    
+    # Get all existing IDs
+    existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
+    
+    # Find the smallest available ID
+    next_id = None
+    if existing_ids:
+        for expected_id in range(1, existing_ids[-1] + 1):
+            if expected_id not in existing_ids:
+                next_id = expected_id
+                break
 
     # Create new user
     db_user = models.Resident(
+        id=next_id,
         user_name=user.username,
         name=user.name,
         apartment_number=user.apartment_number,
@@ -229,3 +242,19 @@ def create_new_user(user: UserCreate, db: Session, token: str, secret_key: str, 
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
+    
+# delete user
+def delete_user_by_id(db: Session, user_id: int, token: str, secret_key: str, algorithm: str):
+    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
+    if not check_username_exists(db, username_exists):
+        return {"success": False, "message": "Invalid token"}
+    
+    db_user = db.query(models.Resident).filter(models.Resident.id == user_id).first()
+    if db_user:
+        if username_exists != db_user.user_name:
+            return {"success": False, "message": "Unauthorized"}
+        db.delete(db_user)
+        db.commit()
+        return {"message": "User deleted successfully"}
+    else:
+        return {"message": "User not found"}
