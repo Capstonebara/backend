@@ -13,3 +13,6 @@ logs/
 
 # Ignore environment variables file
 .env
+
+# Ignore data directory
+data/
