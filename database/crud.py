@@ -3,6 +3,9 @@ from . import models
 import jwt
 import datetime
 from pydantic import BaseModel
+import os
+import shutil
+import glob
 
 
 
@@ -249,12 +252,34 @@ def delete_user_by_id(db: Session, user_id: int, token: str, secret_key: str, al
     if not check_username_exists(db, username_exists):
         return {"success": False, "message": "Invalid token"}
     
+    # Get base data directory path
+    base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+    
     db_user = db.query(models.Resident).filter(models.Resident.id == user_id).first()
     if db_user:
+        if os.path.exists(base_path):
+            for subfolder in os.listdir(base_path):
+                subfolder_path = os.path.join(base_path, subfolder)
+                if os.path.isdir(subfolder_path):
+                    user_path_patterns = [
+                        os.path.join(subfolder_path, str(user_id)),  # Direct match
+                        os.path.join(subfolder_path, f"{user_id}.*")  # Files with extensions
+                    ]
+                    for pattern in user_path_patterns:
+                        matching_paths = glob.glob(pattern)
+                        for path in matching_paths:
+                            try:
+                                if os.path.isfile(path):
+                                    os.remove(path)
+                                else:
+                                    shutil.rmtree(path)
+                            except Exception as e:
+                                print(f"Error deleting {path}: {str(e)}")
+    
         if username_exists != db_user.user_name:
             return {"success": False, "message": "Unauthorized"}
         db.delete(db_user)
         db.commit()
-        return {"message": "User deleted successfully"}
+        return {"message": f"User deleted successfully"}
     else:
         return {"message": "User not found"}
