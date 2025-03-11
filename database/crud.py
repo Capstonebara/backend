@@ -241,11 +241,10 @@ def create_new_user(user: UserCreate, db: Session, token: str, secret_key: str, 
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        return {"success": True, "message": "User created successfully"}
+        return {"success": True, "message": "User created successfully", "id": db_user.id}
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
-    
 # delete user
 def delete_user_by_id(db: Session, user_id: int, token: str, secret_key: str, algorithm: str):
     username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
@@ -280,6 +279,6 @@ def delete_user_by_id(db: Session, user_id: int, token: str, secret_key: str, al
             return {"success": False, "message": "Unauthorized"}
         db.delete(db_user)
         db.commit()
-        return {"message": f"User deleted successfully"}
+        return {"success": True, "message": "User deleted successfully"}
     else:
-        return {"message": "User not found"}
+        return {"success": False, "message": "User not found"}
