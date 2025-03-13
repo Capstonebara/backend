@@ -31,14 +31,14 @@ class Acount(Base):
     user = Column(String, primary_key=True, index=True)
     password = Column(String, index=True)
 
-class AccountCreate(BaseModel):
+class AccountData(BaseModel):
     user: str
     password: str
 
-class ResidentsCreate(BaseModel):
-    username: str
-    name: str
-    apartment_number: str
-    gender: str
-    phone: str
-    email: str
+class ResidentsData(BaseModel):
+    username: str = None
+    name: str = None
+    apartment_number: str = None
+    gender: str = None
+    phone: str = None
+    email: str = None

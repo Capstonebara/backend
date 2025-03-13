@@ -29,6 +29,34 @@ def check_username_exists(db:Session, username:str):
         return True
     return False
 
+def check_id_exists(db:Session, id:int):
+    resident = db.query(models.Resident).filter(models.Resident.id == id).first()
+    if resident:    
+        return resident
+    return False
+
+def delete_resident_image(resident_id: int):
+    # Get base data directory path
+    base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+    if os.path.exists(base_path):
+        for subfolder in os.listdir(base_path):
+            subfolder_path = os.path.join(base_path, subfolder)
+            if os.path.isdir(subfolder_path):
+                user_path_patterns = [
+                    os.path.join(subfolder_path, str(resident_id)),  # Direct match
+                    os.path.join(subfolder_path, f"{resident_id}.*")  # Files with extensions
+                ]
+                for pattern in user_path_patterns:
+                    matching_paths = glob.glob(pattern)
+                    for path in matching_paths:
+                        try:
+                            if os.path.isfile(path):
+                                os.remove(path)
+                            else:
+                                shutil.rmtree(path)
+                        except Exception as e:
+                            print(f"Error deleting {path}: {str(e)}")
+
 # decode access token    
 def decode_access_token(db:Session, token: str, secret_key: str, algorithm: str):
     try:
@@ -82,7 +110,7 @@ def get_information_by_username(db: Session, username: str, token: str, secret_k
     return users
     
 # create user
-def create_new_resident(user: models.ResidentsCreate, db: Session, token: str, secret_key: str, algorithm: str):
+def create_new_resident(user: models.ResidentsData, db: Session, token: str, secret_key: str, algorithm: str):
     # Decode the token to get the username
     username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
     if not check_username_exists(db, username_exists):
@@ -124,41 +152,24 @@ def delete_resident_by_id(db: Session, user_id: int, token: str, secret_key: str
     if not check_username_exists(db, username_exists):
         return {"success": False, "message": "Invalid token"}
     
-    # Get base data directory path
-    base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-    
-    db_user = db.query(models.Resident).filter(models.Resident.id == user_id).first()
-    if db_user:
-        if os.path.exists(base_path):
-            for subfolder in os.listdir(base_path):
-                subfolder_path = os.path.join(base_path, subfolder)
-                if os.path.isdir(subfolder_path):
-                    user_path_patterns = [
-                        os.path.join(subfolder_path, str(user_id)),  # Direct match
-                        os.path.join(subfolder_path, f"{user_id}.*")  # Files with extensions
-                    ]
-                    for pattern in user_path_patterns:
-                        matching_paths = glob.glob(pattern)
-                        for path in matching_paths:
-                            try:
-                                if os.path.isfile(path):
-                                    os.remove(path)
-                                else:
-                                    shutil.rmtree(path)
-                            except Exception as e:
-                                print(f"Error deleting {path}: {str(e)}")
-    
-        if username_exists != db_user.user_name:
-            return {"success": False, "message": "Unauthorized"}
+    db_user = check_id_exists(db, user_id)
+    if not db_user:
+        return {"success": False, "message": "User not found"}
+    if username_exists != db_user.user_name:
+            return {"success": False, "message": "Unauthorized"} 
+    try:
         db.delete(db_user)
         db.commit()
-        return {"success": True, "message": "User deleted successfully"}
-    else:
-        return {"success": False, "message": "User not found"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+    delete_resident_image(user_id)
+    return {"success": True, "message": "User deleted successfully"}
+
     
 # CMS
 # Create account
-def create_account(db: Session, account: models.AccountCreate, pwd_context):
+def create_account(db: Session, account: models.AccountData, pwd_context):
     # Check if username already exists
     existing_account = db.query(models.Acount).filter(models.Acount.user == account.user).first()
     if existing_account:
@@ -197,7 +208,7 @@ def get_all_residents_data(db:Session):
     return info
 
 # Create Resident info
-def create_resident_data(user:models.ResidentsCreate, db:Session):
+def create_resident_data(user:models.ResidentsData, db:Session):
     # Get all existing IDs
     existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
     
@@ -232,10 +243,38 @@ def create_resident_data(user:models.ResidentsCreate, db:Session):
 
 # Delete Resident data by ID
 def delete_resident_data_by_id(db: Session, resident_id: int):
-    db_user = db.query(models.Resident).filter(models.Resident.id == resident_id).first()
-    if db_user:
+    db_user = check_id_exists(db, resident_id)
+    if not db_user:
+        return {"success": False, "message": "User not found"}
+    try:
         db.delete(db_user)
         db.commit()
-        return {"success": True, "message": "User deleted successfully"}
-    else:
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+    delete_resident_image(resident_id)
+    return {"success": True, "message": "User deleted successfully"}
+
+# Update Resident data by ID
+def update_resident_data_by_id(db: Session, resident_id: int, user: models.ResidentsData):
+    db_user = check_id_exists(db, resident_id)
+    if not db_user:
         return {"success": False, "message": "User not found"}
+    
+    try:
+        # Convert Pydantic model to dict and exclude unset values
+        update_data = user.dict(exclude_unset=True)
+        
+        # Map Pydantic field names to SQLAlchemy model field names
+        field_mapping = {"username": "user_name"}
+        
+        # Update only the fields that were provided
+        for key, value in update_data.items():
+            field_name = field_mapping.get(key, key)
+            setattr(db_user, field_name, value)
+        
+        db.commit()
+        return {"success": True, "message": "User updated successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}

@@ -149,7 +149,7 @@ def get_all_information_user(
     return data
 
 @residents.post("/residents/create")
-def create_resident(user:models.ResidentsCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+def create_resident(user:models.ResidentsData, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     result = crud.create_new_resident(
         user=user,
         db=db,

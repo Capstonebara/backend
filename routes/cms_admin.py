@@ -24,7 +24,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Create a new account for resident
 @admin.post("/register/")
-def register_account(account: models.AccountCreate, db: Session = Depends(get_db)):
+def register_account(account: models.AccountData, db: Session = Depends(get_db)):
     return crud.create_account(
         account=account,
         db=db,  
@@ -38,11 +38,15 @@ def get_residents_data_admin(db: Session = Depends(get_db)):
 
 # Create a new resident data:
 @admin.post("/admin/create")
-def create_resident_data_admin(user: models.ResidentsCreate, db: Session = Depends(get_db)):
+def create_resident_data_admin(user: models.ResidentsData, db: Session = Depends(get_db)):
     return crud.create_resident_data(user=user, db=db)
 
 # Delete a resident data:
 @admin.delete("/admin/delete")
 def delete_resident_data_admin(resident_id: int, db: Session = Depends(get_db)):
     return crud.delete_resident_data_by_id(resident_id=resident_id, db=db)
+
+@admin.put("/admin/update")
+def update_resident_data_admin(resident_id: int, user: models.ResidentsData, db: Session = Depends(get_db)):
+    return crud.update_resident_data_by_id(resident_id=resident_id, user=user, db=db)
 
