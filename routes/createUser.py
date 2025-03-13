@@ -11,7 +11,6 @@ from database import models, crud
 from database.database import SessionLocal, engine
 from passlib.context import CryptContext
 
-from pydantic import BaseModel
 import os
 
 import secrets
@@ -19,8 +18,6 @@ import secrets
 # Load environment variables
 load_dotenv()
 
-users = APIRouter()
-accounts = APIRouter()
 residents = APIRouter()
 
 # Tạo tất cả các bảng trong CSDL
@@ -65,16 +62,7 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 SECRET_KEY = secrets.token_hex(32)
 
-
-@accounts.post("/register/")
-def register_account(db: Session = Depends(get_db), account: models.AccountCreate = Depends):
-    return crud.create_account(
-        account=account,
-        db=db,  
-        pwd_context=pwd_context
-    )
-
-@accounts.post("/login/")
+@residents.post("/login/")
 def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     verify = crud.verify_account(
         db=db,
@@ -106,7 +94,7 @@ def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), 
     }
 
 
-@accounts.get("/accounts/me")
+@residents.get("/residents/me")
 def get_username_from_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     username = crud.decode_access_token(db=db, token=token, secret_key=SECRET_KEY, algorithm=ALGORITHM)
     if not username:
@@ -117,7 +105,7 @@ def get_username_from_token(token: str = Depends(oauth2_scheme), db: Session = D
         )
     return {"username": username}
 
-@accounts.get("/accounts/phone")
+@residents.get("/residents/phone")
 def get_phone_number_from_username(
     username: str,
     token: str = Depends(oauth2_scheme),
@@ -139,7 +127,7 @@ def get_phone_number_from_username(
     return {"phone": phone}
 
 
-@residents.get("/residents/users")
+@residents.get("/residents/users_info")
 def get_all_information_user(
     username: str,
     token: str = Depends(oauth2_scheme),

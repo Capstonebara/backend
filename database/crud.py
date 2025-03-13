@@ -7,128 +7,7 @@ import os
 import shutil
 import glob
 
-
-
-def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
-
-def get_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
-
-def get_status(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first().reg
-
-def update_registration_status(db: Session, email: str, status: int = 1):
-    db_user = db.query(models.User).filter(models.User.email == email.lower()).first()
-    if db_user:
-        db_user.reg = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-def update_registration_reset(db: Session, email: str, status: int = 0):
-    db_user = db.query(models.User).filter(models.User.email == email.lower()).first()
-    if db_user:
-        db_user.reg = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-def create_user(db: Session, name: str, email: str):
-    db_user = models.User(name=name, email=email.lower(), reg=False)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
-
-def delete_user_by_email(db: Session, email: str):
-    db_user = db.query(models.User).filter(models.User.email == email.lower()).first()
-    if db_user:
-        db.delete(db_user)
-        db.commit()
-        return {"message": "User deleted successfully"}
-    else:
-        return {"message": "User not found"}
-
-def update_registration_le_status(db: Session, user_id: int, status: int = 1):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if db_user:
-        db_user.le = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-def update_registration_le_reset(db: Session, user_id: int, status: int = 0):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if db_user:
-        db_user.le = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-def update_registration_tiec_status(db: Session, user_id: int, status: int = 1):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if db_user:
-        db_user.tiec = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-def update_registration_tiec_reset(db: Session, user_id: int, status: int = 0):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if db_user:
-        db_user.tiec = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-def update_registration_cahai_status(db: Session, user_id: int, status: int = 1):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if db_user:
-        db_user.cahai = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-def update_registration_cahai_reset(db: Session, user_id: int, status: int = 0):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if db_user:
-        db_user.cahai = status
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    return None
-
-
 # WebApp
-# Create account
-def create_account(db: Session, account: models.AccountCreate, pwd_context):
-    # Check if username already exists
-    existing_account = db.query(models.Acount).filter(models.Acount.user == account.user).first()
-    if existing_account:
-        return {"success": False, "message": "Username already exists"}
-    
-    # Hash the password
-    hashed_password = pwd_context.hash(account.password)
-    
-    # Create new account
-    db_account = models.Acount(user=account.user, password=hashed_password)
-    try:
-        db.add(db_account)
-        db.commit()
-        db.refresh(db_account)
-        return {"success": True, "message": "Account created successfully"}
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": str(e)}
-
 # create access token    
 def create_access_token(username:str, password:str, expires_delta: int, algorithm: str, secret_key: str):
     to_encode = {"sub": username, "password": password, "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_delta)}
@@ -202,7 +81,6 @@ def get_information_by_username(db: Session, username: str, token: str, secret_k
     
     return users
     
-
 # create user
 def create_new_resident(user: models.ResidentsCreate, db: Session, token: str, secret_key: str, algorithm: str):
     # Decode the token to get the username
@@ -272,6 +150,90 @@ def delete_resident_by_id(db: Session, user_id: int, token: str, secret_key: str
     
         if username_exists != db_user.user_name:
             return {"success": False, "message": "Unauthorized"}
+        db.delete(db_user)
+        db.commit()
+        return {"success": True, "message": "User deleted successfully"}
+    else:
+        return {"success": False, "message": "User not found"}
+    
+# CMS
+# Create account
+def create_account(db: Session, account: models.AccountCreate, pwd_context):
+    # Check if username already exists
+    existing_account = db.query(models.Acount).filter(models.Acount.user == account.user).first()
+    if existing_account:
+        return {"success": False, "message": "Username already exists"}
+    
+    # Hash the password
+    hashed_password = pwd_context.hash(account.password)
+    
+    # Create new account
+    db_account = models.Acount(user=account.user, password=hashed_password)
+    try:
+        db.add(db_account)
+        db.commit()
+        db.refresh(db_account)
+        return {"success": True, "message": "Account created successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+    
+# Get all residents data
+def get_all_residents_data(db:Session):
+    residents = db.query(models.Resident).all()
+    info = []
+    for resident in residents:
+        data = {
+            "id": resident.id,
+            "username": resident.user_name,
+            "name": resident.name,
+            "apartment": resident.apartment_number,
+            "gender": resident.gender,
+            "phone": resident.phone,
+            "email": resident.email,
+            "photoUrl": "/placeholder.svg?height=40&width=40"
+        }
+        info.append(data)
+    return info
+
+# Create Resident info
+def create_resident_data(user:models.ResidentsCreate, db:Session):
+    # Get all existing IDs
+    existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
+    
+    # Find the smallest available ID
+    next_id = None
+    if existing_ids:
+        for expected_id in range(1, existing_ids[-1] + 1):
+            if expected_id not in existing_ids:
+                next_id = expected_id
+                break
+    if not check_username_exists(db, user.username):
+        return {"success": False, "message": "Username does not exist. Create an account first."}
+    
+    # Create new user
+    db_user = models.Resident(
+        id=next_id,
+        user_name=user.username,
+        name=user.name,
+        apartment_number=user.apartment_number,
+        gender=user.gender,
+        phone=user.phone,
+        email=user.email.lower()
+    )
+    try:
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return {"success": True, "message": "User created successfully", "id": db_user.id}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+
+# Delete Resident data by ID
+def delete_resident_data_by_id(db: Session, resident_id: int):
+    db_user = db.query(models.Resident).filter(models.Resident.id == resident_id).first()
+    if db_user:
         db.delete(db_user)
         db.commit()
         return {"success": True, "message": "User deleted successfully"}

@@ -4,9 +4,8 @@ from middleware.http import LogProcessAndTime
 from middleware.corn import CORSMiddleware
 from routes.collectdata import router
 from routes.authentication import authen
-from routes.createUser import users
-from routes.createUser import accounts
-from routes.createUser import residents
+from routes import createUser, cms_admin
+
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials, OAuth2PasswordBearer
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
@@ -101,7 +100,7 @@ app.add_middleware(
 )
 app.add_middleware(LogProcessAndTime)
 app.include_router(router)
-app.include_router(authen)
-app.include_router(users)
-app.include_router(accounts)
-app.include_router(residents)
+# app.include_router(authen)
+# app.include_router(users)
+app.include_router(cms_admin.admin)
+app.include_router(createUser.residents)
