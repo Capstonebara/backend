@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from .database import Base
+from pydantic import BaseModel
 
 
 class User(Base):
@@ -29,3 +30,15 @@ class Acount(Base):
 
     user = Column(String, primary_key=True, index=True)
     password = Column(String, index=True)
+
+class AccountCreate(BaseModel):
+    user: str
+    password: str
+
+class ResidentsCreate(BaseModel):
+    username: str
+    name: str
+    apartment_number: str
+    gender: str
+    phone: str
+    email: str

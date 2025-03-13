@@ -106,18 +106,20 @@ def update_registration_cahai_reset(db: Session, user_id: int, status: int = 0):
         return db_user
     return None
 
+
+# WebApp
 # Create account
-def create_account(db: Session, username: str, password: str, pwd_context):
+def create_account(db: Session, account: models.AccountCreate, pwd_context):
     # Check if username already exists
-    existing_account = db.query(models.Acount).filter(models.Acount.user == username).first()
+    existing_account = db.query(models.Acount).filter(models.Acount.user == account.user).first()
     if existing_account:
         return {"success": False, "message": "Username already exists"}
     
     # Hash the password
-    hashed_password = pwd_context.hash(password)
+    hashed_password = pwd_context.hash(account.password)
     
     # Create new account
-    db_account = models.Acount(user=username, password=hashed_password)
+    db_account = models.Acount(user=account.user, password=hashed_password)
     try:
         db.add(db_account)
         db.commit()
@@ -201,16 +203,8 @@ def get_information_by_username(db: Session, username: str, token: str, secret_k
     return users
     
 
-class UserCreate(BaseModel):
-    username: str
-    name: str
-    apartment_number: str
-    gender: str
-    phone: str
-    email: str
-
 # create user
-def create_new_user(user: UserCreate, db: Session, token: str, secret_key: str, algorithm: str):
+def create_new_resident(user: models.ResidentsCreate, db: Session, token: str, secret_key: str, algorithm: str):
     # Decode the token to get the username
     username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
     if not check_username_exists(db, username_exists):
@@ -245,8 +239,9 @@ def create_new_user(user: UserCreate, db: Session, token: str, secret_key: str, 
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
+    
 # delete user
-def delete_user_by_id(db: Session, user_id: int, token: str, secret_key: str, algorithm: str):
+def delete_resident_by_id(db: Session, user_id: int, token: str, secret_key: str, algorithm: str):
     username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
     if not check_username_exists(db, username_exists):
         return {"success": False, "message": "Invalid token"}

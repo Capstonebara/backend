@@ -55,20 +55,6 @@ def get_db():
     
 #     return templates.TemplateResponse("users_table.html", {"request": {}, "users": users})
 
-
-# Add this class for request validation
-class Account(BaseModel):
-    user: str
-    password: str
-
-class ResidentsCreate(BaseModel):
-    username: str
-    name: str
-    apartment_number: str
-    gender: str
-    phone: str
-    email: str
-
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/login",
     scheme_name="Bearer"  # This will show up in Swagger UI
@@ -81,11 +67,10 @@ SECRET_KEY = secrets.token_hex(32)
 
 
 @accounts.post("/register/")
-def register_account(account: Account, db: Session = Depends(get_db)):
+def register_account(db: Session = Depends(get_db), account: models.AccountCreate = Depends):
     return crud.create_account(
-        db=db, 
-        username=account.user, 
-        password=account.password, 
+        account=account,
+        db=db,  
         pwd_context=pwd_context
     )
 
@@ -176,8 +161,8 @@ def get_all_information_user(
     return data
 
 @residents.post("/residents/create")
-def create_new_user(user: ResidentsCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    result = crud.create_new_user(
+def create_resident(user:models.ResidentsCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    result = crud.create_new_resident(
         user=user,
         db=db,
         token=token,
@@ -187,8 +172,8 @@ def create_new_user(user: ResidentsCreate, db: Session = Depends(get_db), token:
     return result
 
 @residents.delete("/residents/delete")
-def delete_user(user_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    result = crud.delete_user_by_id(db=db, user_id=user_id, token=token, secret_key=SECRET_KEY, algorithm=ALGORITHM)
+def delete_resident(user_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    result = crud.delete_resident_by_id(db=db, user_id=user_id, token=token, secret_key=SECRET_KEY, algorithm=ALGORITHM)
     return result
     
     
