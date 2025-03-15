@@ -178,13 +178,32 @@ def create_account(db: Session, account: models.AccountData, pwd_context):
     # Hash the password
     hashed_password = pwd_context.hash(account.password)
     
-    # Create new account
-    db_account = models.Account(user=account.user, password=hashed_password)
+    # Create new account with id, created_time, and last_login
+    # Get all existing IDs
+    existing_ids = [id[0] for id in db.query(models.Account.id).order_by(models.Account.id).all()]
+    
+    # Find the smallest available ID
+    next_id = None
+    if existing_ids:
+        for expected_id in range(1, existing_ids[-1] + 1):
+            if expected_id not in existing_ids:
+                next_id = expected_id
+                break
+
+    db_account = models.Account(
+        id=next_id,
+        user=account.user,
+        password=hashed_password, 
+        status = True,
+        member = int(0),
+        created_time=int(datetime.datetime.now().timestamp()),  # Ensure timestamp is cast to an integer
+        last_login=int(0)
+    )
     try:
         db.add(db_account)
         db.commit()
         db.refresh(db_account)
-        return {"success": True, "message": "Account created successfully"}
+        return {"success": True, "message": "Account created successfully", "id": db_account.id}
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}

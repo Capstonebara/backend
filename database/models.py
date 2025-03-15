@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from .database import Base
 from pydantic import BaseModel
+from datetime import datetime
+from sqlalchemy import DateTime
 
 
 class User(Base):
@@ -24,12 +26,16 @@ class Resident(Base):
     gender = Column(String, index=True)
     phone = Column(String, nullable=False, index=True)
     email = Column(String, index=True)
-
 class Account(Base):
     __tablename__ = "accounts"
 
-    user = Column(String, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    user = Column(String, unique=True, index=True)
     password = Column(String, index=True)
+    status = Column(Boolean, index=True)
+    member = Column(Integer, index=True)
+    created_time = Column(Integer, index=True)
+    last_login = Column(Integer, index=True)
 
 class AccountData(BaseModel):
     user: str
