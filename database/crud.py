@@ -29,10 +29,13 @@ def check_username_exists(db:Session, username:str):
         return True
     return False
 
-def check_id_exists(db:Session, id:int):
-    resident = db.query(models.Resident).filter(models.Resident.id == id).first()
-    if resident:    
-        return resident
+def check_id_exists(db:Session, id:int, table: str):
+    if table == "residents":
+        user = db.query(models.Resident).filter(models.Resident.id == id).first()
+    elif table == "accounts":
+        user = db.query(models.Account).filter(models.Account.id == id).first()
+    if user:
+        return user
     return False
 
 def delete_resident_image(resident_id: int):
@@ -276,7 +279,7 @@ def delete_resident_data_by_id(db: Session, resident_id: int):
 
 # Update Resident data by ID
 def update_resident_data_by_id(db: Session, resident_id: int, user: models.ResidentsData):
-    db_user = check_id_exists(db, resident_id)
+    db_user = check_id_exists(db, resident_id, "residents")
     if not db_user:
         return {"success": False, "message": "User not found"}
     
@@ -297,3 +300,31 @@ def update_resident_data_by_id(db: Session, resident_id: int, user: models.Resid
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
+    
+def get_all_accounts(db: Session):
+    accounts = db.query(models.Account).all()
+    info = []
+    for account in accounts:
+        data = {
+            "id": account.id,
+            "username": account.user,
+            "status": account.status,
+            "member": account.member,
+            "created_time": account.created_time,
+            "last_login": account.last_login
+        }
+        info.append(data)
+    return info
+
+def delete_account_by_id(db: Session, account_id: int):
+    db_account = check_id_exists(db, account_id, "accounts")
+    if not db_account:
+        return {"success": False, "message": "Account not found"}
+    try:
+        db.delete(db_account)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+    return {"success": True, "message": "Account deleted successfully"}
+# End of file
