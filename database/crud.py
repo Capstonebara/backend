@@ -16,7 +16,7 @@ def create_access_token(username:str, password:str, expires_delta: int, algorith
 
 # verify account
 def verify_account(db:Session, username:str, password:str, pwd_context):
-    account = db.query(models.Acount).filter(models.Acount.user == username).first()
+    account = db.query(models.Account).filter(models.Account.user == username).first()
     if not account:
         return "Account not found"
     
@@ -24,7 +24,7 @@ def verify_account(db:Session, username:str, password:str, pwd_context):
         return "Incorrect password"
 
 def check_username_exists(db:Session, username:str):
-    account = db.query(models.Acount).filter(models.Acount.user == username).all()
+    account = db.query(models.Account).filter(models.Account.user == username).all()
     if account:
         return True
     return False
@@ -171,7 +171,7 @@ def delete_resident_by_id(db: Session, user_id: int, token: str, secret_key: str
 # Create account
 def create_account(db: Session, account: models.AccountData, pwd_context):
     # Check if username already exists
-    existing_account = db.query(models.Acount).filter(models.Acount.user == account.user).first()
+    existing_account = db.query(models.Account).filter(models.Account.user == account.user).first()
     if existing_account:
         return {"success": False, "message": "Username already exists"}
     
@@ -179,7 +179,7 @@ def create_account(db: Session, account: models.AccountData, pwd_context):
     hashed_password = pwd_context.hash(account.password)
     
     # Create new account
-    db_account = models.Acount(user=account.user, password=hashed_password)
+    db_account = models.Account(user=account.user, password=hashed_password)
     try:
         db.add(db_account)
         db.commit()
