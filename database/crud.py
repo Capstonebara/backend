@@ -265,7 +265,7 @@ def create_resident_data(user:models.ResidentsData, db:Session):
 
 # Delete Resident data by ID
 def delete_resident_data_by_id(db: Session, resident_id: int):
-    db_user = check_id_exists(db, resident_id)
+    db_user = check_id_exists(db, resident_id, "residents")
     if not db_user:
         return {"success": False, "message": "User not found"}
     try:
