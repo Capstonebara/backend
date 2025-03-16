@@ -190,13 +190,26 @@ def delete_account_by_id(db: Session, account_id: int):
     db_account = check_id_exists(db, account_id, "accounts")
     if not db_account:
         return {"success": False, "message": "Account not found"}
+    
+    # Delete all residents associated with the account
+    residents = db.query(models.Resident).filter(models.Resident.user_name == db_account.user).all()
+    for resident in residents:
+        try:
+            db.delete(resident)
+            delete_resident_image(resident.id)
+        except Exception as e:
+            db.rollback()
+            return {"success": False, "message": f"Error deleting resident {resident.id}: {str(e)}"}
+    
     try:
+        # Delete the account
         db.delete(db_account)
         db.commit()
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
-    return {"success": True, "message": "Account deleted successfully"}
+    
+    return {"success": True, "message": "Account and associated residents deleted successfully"}
 
 
 # Both
