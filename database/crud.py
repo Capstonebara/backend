@@ -7,7 +7,7 @@ import os
 import shutil
 import glob
 
-# WebApp
+# Utility functions
 # create access token    
 def create_access_token(username:str, password:str, expires_delta: int, algorithm: str, secret_key: str):
     to_encode = {"sub": username, "password": password, "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_delta)}
@@ -24,9 +24,9 @@ def verify_account(db:Session, username:str, password:str, pwd_context):
         return "Incorrect password"
 
 def check_username_exists(db:Session, username:str):
-    account = db.query(models.Account).filter(models.Account.user == username).all()
+    account = db.query(models.Account).filter(models.Account.user == username).first()
     if account:
-        return True
+        return account
     return False
 
 def check_id_exists(db:Session, id:int, table: str):
@@ -71,6 +71,60 @@ def decode_access_token(db:Session, token: str, secret_key: str, algorithm: str)
     except:
         return None
     
+# check valid token
+def check_valid_token(db:Session, token: str, secret_key: str, algorithm: str, username: str):
+    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
+    if not check_username_exists(db, username_exists) or username_exists != username:
+        return False
+    return True
+
+# get smallest ID
+def get_id(db:Session, table: str):
+    if table == "residents":
+        existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
+    elif table == "accounts":
+        existing_ids = [id[0] for id in db.query(models.Account.id).order_by(models.Account.id).all()]
+    next_id = None
+    if existing_ids:
+        for expected_id in range(1, existing_ids[-1] + 1):
+            if expected_id not in existing_ids:
+                next_id = expected_id
+                break
+    return next_id
+
+# Update Account member
+def update_account_member(db:Session, account:models.AccountData):
+    mem_count = len(db.query(models.Resident).filter(models.Resident.user_name == account.user).all())
+    account.member = mem_count
+    db.commit()
+
+
+# WebApp 
+# Login
+def login(db: Session, username: str, password: str, pwd_context, algorithm: str, secret_key: str, access_token_expire_minutes: int):
+    # Verify account
+    account = db.query(models.Account).filter(models.Account.user == username).first()
+    if not account:
+        return {"success": False, "message": "Account not found"}
+    
+    if not pwd_context.verify(password, account.password):
+        return {"success": False, "message": "Incorrect password"}
+
+    
+    # Create access token
+    to_encode = {"sub": username, "password": password, "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=access_token_expire_minutes)}
+    access_token = jwt.encode(to_encode, secret_key, algorithm=algorithm)
+
+    #Login time
+    account.last_login = int(datetime.datetime.now().timestamp())
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Login successful",
+        "token": access_token
+    }
+
 #get phone number
 def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algorithm:str):
     username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
@@ -86,119 +140,25 @@ def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algori
         return [resident.phone for resident in residents]
     return []
 
-# get all information resident
-def get_information_by_username(db: Session, username: str, token: str, secret_key: str, algorithm: str):
-    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
-    if not check_username_exists(db, username_exists) or username_exists != username:
-        return []
 
-    residents = db.query(models.Resident).filter(models.Resident.user_name == username).all()
-    if not residents:
-        return []
-
-    users = []
-    for resident in residents:
-        user = {
-            "id": resident.id,
-            "username": resident.user_name,
-            "name": resident.name,
-            "apartment": resident.apartment_number,
-            "gender": resident.gender,
-            "phone": resident.phone,
-            "email": resident.email,
-            "photoUrl": "/placeholder.svg?height=40&width=40"
-        }
-        users.append(user)
-    
-    return users
-    
-# create user
-def create_new_resident(user: models.ResidentsData, db: Session, token: str, secret_key: str, algorithm: str):
-    # Decode the token to get the username
-    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
-    if not check_username_exists(db, username_exists):
-        return {"success": False, "message": "Invalid token"}
-    
-    # Get all existing IDs
-    existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
-    
-    # Find the smallest available ID
-    next_id = None
-    if existing_ids:
-        for expected_id in range(1, existing_ids[-1] + 1):
-            if expected_id not in existing_ids:
-                next_id = expected_id
-                break
-
-    # Create new user
-    db_user = models.Resident(
-        id=next_id,
-        user_name=user.username,
-        name=user.name,
-        apartment_number=user.apartment_number,
-        gender=user.gender,
-        phone=user.phone,
-        email=user.email.lower()
-    )
-    try:
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        return {"success": True, "message": "User created successfully", "id": db_user.id}
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": str(e)}
-    
-# delete user
-def delete_resident_by_id(db: Session, user_id: int, token: str, secret_key: str, algorithm: str):
-    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
-    if not check_username_exists(db, username_exists):
-        return {"success": False, "message": "Invalid token"}
-    
-    db_user = check_id_exists(db, user_id)
-    if not db_user:
-        return {"success": False, "message": "User not found"}
-    if username_exists != db_user.user_name:
-            return {"success": False, "message": "Unauthorized"} 
-    try:
-        db.delete(db_user)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": str(e)}
-    delete_resident_image(user_id)
-    return {"success": True, "message": "User deleted successfully"}
-
-    
 # CMS
 # Create account
 def create_account(db: Session, account: models.AccountData, pwd_context):
     # Check if username already exists
     existing_account = db.query(models.Account).filter(models.Account.user == account.user).first()
     if existing_account:
-        return {"success": False, "message": "Username already exists"}
-    
+        return {"success": False, "message": "Username already exists"} 
     # Hash the password
     hashed_password = pwd_context.hash(account.password)
-    
-    # Create new account with id, created_time, and last_login
-    # Get all existing IDs
-    existing_ids = [id[0] for id in db.query(models.Account.id).order_by(models.Account.id).all()]
-    
-    # Find the smallest available ID
-    next_id = None
-    if existing_ids:
-        for expected_id in range(1, existing_ids[-1] + 1):
-            if expected_id not in existing_ids:
-                next_id = expected_id
-                break
-
+    # get smallest ID
+    id = get_id(db, "accounts")
+    # Create new account
     db_account = models.Account(
-        id=next_id,
+        id=id,
         user=account.user,
         password=hashed_password, 
         status = True,
-        member = int(0),
+        member = len(db.query(models.Resident).filter(models.Resident.user_name == account.user).all()),
         created_time=int(datetime.datetime.now().timestamp()),  # Ensure timestamp is cast to an integer
         last_login=int(0)
     )
@@ -210,97 +170,7 @@ def create_account(db: Session, account: models.AccountData, pwd_context):
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
-    
-# Get all residents data
-def get_all_residents_data(db:Session):
-    residents = db.query(models.Resident).all()
-    info = []
-    for resident in residents:
-        data = {
-            "id": resident.id,
-            "username": resident.user_name,
-            "name": resident.name,
-            "apartment": resident.apartment_number,
-            "gender": resident.gender,
-            "phone": resident.phone,
-            "email": resident.email,
-            "photoUrl": "/placeholder.svg?height=40&width=40"
-        }
-        info.append(data)
-    return info
-
-# Create Resident info
-def create_resident_data(user:models.ResidentsData, db:Session):
-    # Get all existing IDs
-    existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
-    
-    # Find the smallest available ID
-    next_id = None
-    if existing_ids:
-        for expected_id in range(1, existing_ids[-1] + 1):
-            if expected_id not in existing_ids:
-                next_id = expected_id
-                break
-    if not check_username_exists(db, user.username):
-        return {"success": False, "message": "Username does not exist. Create an account first."}
-    
-    # Create new user
-    db_user = models.Resident(
-        id=next_id,
-        user_name=user.username,
-        name=user.name,
-        apartment_number=user.apartment_number,
-        gender=user.gender,
-        phone=user.phone,
-        email=user.email.lower()
-    )
-    try:
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        return {"success": True, "message": "User created successfully", "id": db_user.id}
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": str(e)}
-
-# Delete Resident data by ID
-def delete_resident_data_by_id(db: Session, resident_id: int):
-    db_user = check_id_exists(db, resident_id, "residents")
-    if not db_user:
-        return {"success": False, "message": "User not found"}
-    try:
-        db.delete(db_user)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": str(e)}
-    delete_resident_image(resident_id)
-    return {"success": True, "message": "User deleted successfully"}
-
-# Update Resident data by ID
-def update_resident_data_by_id(db: Session, resident_id: int, user: models.ResidentsData):
-    db_user = check_id_exists(db, resident_id, "residents")
-    if not db_user:
-        return {"success": False, "message": "User not found"}
-    
-    try:
-        # Convert Pydantic model to dict and exclude unset values
-        update_data = user.dict(exclude_unset=True)
         
-        # Map Pydantic field names to SQLAlchemy model field names
-        field_mapping = {"username": "user_name"}
-        
-        # Update only the fields that were provided
-        for key, value in update_data.items():
-            field_name = field_mapping.get(key, key)
-            setattr(db_user, field_name, value)
-        
-        db.commit()
-        return {"success": True, "message": "User updated successfully"}
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": str(e)}
-    
 def get_all_accounts(db: Session):
     accounts = db.query(models.Account).all()
     info = []
@@ -327,4 +197,111 @@ def delete_account_by_id(db: Session, account_id: int):
         db.rollback()
         return {"success": False, "message": str(e)}
     return {"success": True, "message": "Account deleted successfully"}
-# End of file
+
+
+# Both
+# get all residents infomation
+def get_residents_data(role: str, db: Session, username: str = None, token: str = None, secret_key: str = None, algorithm: str = None):
+    if role == "resident":
+        if not check_valid_token(db, token, secret_key, algorithm, username):
+            return {"success": False, "message": "Invalid token"}
+        residents = db.query(models.Resident).filter(models.Resident.user_name == username).all()
+        if not residents:
+            return {"success": False, "message": "User not found"}
+    elif role == "admin":
+        residents = db.query(models.Resident).all()
+
+    info = []
+    for resident in residents:
+        data = {
+            "id": resident.id,
+            "username": resident.user_name,
+            "name": resident.name,
+            "apartment": resident.apartment_number,
+            "gender": resident.gender,
+            "phone": resident.phone,
+            "email": resident.email,
+            "photoUrl": "/placeholder.svg?height=40&width=40"
+        }
+        info.append(data)
+    return info
+    
+# Create resident
+def create_new_resident(resident: models.ResidentsData, db: Session, role: str="resident", token: str = None, secret_key: str = None, algorithm: str = None):
+    if role == "resident":
+        # check valid token
+        if not check_valid_token(db, token, secret_key, algorithm, resident.username):
+            return {"success": False, "message": "Invalid token"}
+    
+    id = get_id(db, "residents")
+    account = check_username_exists(db, resident.username)
+    if not account:
+        return {"success": False, "message": "Username does not exist. Create an account first."}
+
+    # Create new user
+    db_user = models.Resident(
+        id=id,
+        user_name=resident.username,
+        name=resident.name,
+        apartment_number=resident.apartment_number,
+        gender=resident.gender,
+        phone=resident.phone,
+        email=resident.email.lower()
+    )
+    try:
+        db.add(db_user)
+        db.flush()
+        update_account_member(db, account)
+        return {"success": True, "message": "User created successfully", "id": db_user.id}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+    
+# Delete resident by ID
+def delete_resident_by_id(db: Session, user_id: int, role:str="resident",token: str=None, secret_key: str=None, algorithm: str=None):
+    db_user = check_id_exists(db, user_id, "residents")
+    if not db_user:
+        return {"success": False, "message": "User not found"}
+
+    if role == "resident":
+        if not check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
+            return {"success": False, "message": "Invalid token"}
+        
+    try:
+        db.delete(db_user)
+        db.flush()
+        update_account_member(db, check_username_exists(db,db_user.user_name))
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+    delete_resident_image(user_id)
+    return {"success": True, "message": "User deleted successfully"}
+
+# Update Resident data by ID
+def update_resident_data_by_id(db: Session, resident_id: int, user: models.ResidentsData, role="resident",token: str=None, secret_key: str=None, algorithm: str=None):
+    db_user = check_id_exists(db, resident_id, "residents")
+    if not db_user:
+        return {"success": False, "message": "User not found"}
+
+    if role == "resident":
+        if not check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
+            return {"success": False, "message": "Invalid token"}
+
+    
+    try:
+        # Convert Pydantic model to dict and exclude unset values
+        update_data = user.dict(exclude_unset=True)
+        
+        # Map Pydantic field names to SQLAlchemy model field names
+        field_mapping = {"username": "user_name"}
+        
+        # Update only the fields that were provided
+        for key, value in update_data.items():
+            field_name = field_mapping.get(key, key)
+            setattr(db_user, field_name, value)
+        
+        db.commit()
+        return {"success": True, "message": "User updated successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}

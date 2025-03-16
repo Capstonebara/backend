@@ -63,34 +63,23 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 SECRET_KEY = secrets.token_hex(32)
 
 @residents.post("/login/")
-def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    verify = crud.verify_account(
+def login_route(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    result = crud.login(
         db=db,
         username=form_data.username,
         password=form_data.password,
-        pwd_context=pwd_context
-    )
-
-    if verify == "Account not found" or verify == "Incorrect password":
-        return {
-            "success": False,
-            "message": verify
-        }
-    
-    access_token = crud.create_access_token(
-        username=form_data.username, 
-        password=form_data.password, 
-        expires_delta=ACCESS_TOKEN_EXPIRE_MINUTES, 
-        algorithm=ALGORITHM, 
-        secret_key=SECRET_KEY
+        pwd_context=pwd_context,
+        algorithm=ALGORITHM,
+        secret_key=SECRET_KEY,
+        access_token_expire_minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
     
-    # Set the token in header
-    response.headers["Authorization"] = f"Bearer {access_token}"
-    
+    if result["success"]:
+        response.headers["Authorization"] = f"Bearer {result['token']}"
+        
     return {
-        "success": True,
-        "message": "Login successful"
+        "success": result["success"],
+        "message": result["message"]
     }
 
 
@@ -133,25 +122,21 @@ def get_all_information_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
-    data = crud.get_information_by_username(
+    info = crud.get_residents_data(
+        role = "resident",
         db=db,
         username=username,
         token=token,
         secret_key=SECRET_KEY,
         algorithm=ALGORITHM
     )
-    if not data:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token or Username does not exist",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return data
+    return info
 
 @residents.post("/residents/create")
 def create_resident(user:models.ResidentsData, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     result = crud.create_new_resident(
-        user=user,
+        role = "resident",
+        resident=user,
         db=db,
         token=token,
         secret_key=SECRET_KEY,
@@ -163,5 +148,16 @@ def create_resident(user:models.ResidentsData, db: Session = Depends(get_db), to
 def delete_resident(user_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     result = crud.delete_resident_by_id(db=db, user_id=user_id, token=token, secret_key=SECRET_KEY, algorithm=ALGORITHM)
     return result
-    
+
+@residents.put("/residents/update")
+def update_resident_data(user_id: int, user: models.ResidentsData, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    return crud.update_resident_data_by_id(
+        role="resident",
+        resident_id=user_id,
+        user=user,
+        db=db,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
     

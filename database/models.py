@@ -26,6 +26,7 @@ class Resident(Base):
     gender = Column(String, index=True)
     phone = Column(String, nullable=False, index=True)
     email = Column(String, index=True)
+
 class Account(Base):
     __tablename__ = "accounts"
 

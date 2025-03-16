@@ -34,17 +34,17 @@ def register_account(account: models.AccountData, db: Session = Depends(get_db))
 # Get all residents data
 @admin.get("/admin/residents_info")
 def get_residents_data_admin(db: Session = Depends(get_db)):
-    return crud.get_all_residents_data(db=db)
+    return crud.get_residents_data(role = "admin", db=db)
 
 # Create a new resident data:
 @admin.post("/admin/create_resident")
 def create_resident_data_admin(user: models.ResidentsData, db: Session = Depends(get_db)):
-    return crud.create_resident_data(user=user, db=db)
+    return crud.create_new_resident(role = "admin", resident=user, db=db)
 
 # Delete a resident data:
 @admin.delete("/admin/delete_resident")
-def delete_resident_data_admin(resident_id: int, db: Session = Depends(get_db)):
-    return crud.delete_resident_data_by_id(resident_id=resident_id, db=db)
+def delete_resident_by_id(resident_id: int, db: Session = Depends(get_db)):
+    return crud.delete_resident_by_id(role = "admin", user_id=resident_id, db=db)
 
 @admin.put("/admin/update_resident")
 def update_resident_data_admin(resident_id: int, user: models.ResidentsData, db: Session = Depends(get_db)):
@@ -57,4 +57,3 @@ def get_all_accounts(db: Session = Depends(get_db)):
 @admin.delete("/admin/delete_account")
 def delete_account(account_id: int, db: Session = Depends(get_db)):
     return crud.delete_account_by_id(db=db, account_id=account_id)
-
