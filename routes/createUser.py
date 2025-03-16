@@ -57,7 +57,7 @@ oauth2_scheme = OAuth2PasswordBearer(
     scheme_name="Bearer"  # This will show up in Swagger UI
 )
 
-pwd_context = os.getenv("PWD_CONTEXT")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 SECRET_KEY = os.getenv("SECRET_KEY")

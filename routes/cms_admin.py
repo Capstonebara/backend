@@ -48,7 +48,7 @@ def delete_resident_by_id(resident_id: int, db: Session = Depends(get_db)):
 
 @admin.put("/admin/update_resident")
 def update_resident_data_admin(resident_id: int, user: models.ResidentsData, db: Session = Depends(get_db)):
-    return crud.update_resident_data_by_id(resident_id=resident_id, user=user, db=db)
+    return crud.update_resident_data_by_id(resident_id=resident_id, user=user, db=db, role="admin")
 
 @admin.get("/admin/all_accounts")
 def get_all_accounts(db: Session = Depends(get_db)):
