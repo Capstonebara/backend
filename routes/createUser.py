@@ -57,10 +57,10 @@ oauth2_scheme = OAuth2PasswordBearer(
     scheme_name="Bearer"  # This will show up in Swagger UI
 )
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = os.getenv("PWD_CONTEXT")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
-SECRET_KEY = secrets.token_hex(32)
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 @residents.post("/login/")
 def login_route(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
