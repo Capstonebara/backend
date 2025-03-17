@@ -1,103 +1,8 @@
 from sqlalchemy.orm import Session
 from . import models
-import jwt
+from services import auth_service, db_service
 import datetime
-from pydantic import BaseModel
-import os
-import shutil
-import glob
-
-# Utility functions
-# create access token    
-def create_access_token(username:str, password:str, expires_delta: int, algorithm: str, secret_key: str):
-    to_encode = {"sub": username, "password": password, "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_delta)}
-    encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=algorithm)
-    return encoded_jwt
-
-# verify account
-def verify_account(db:Session, username:str, password:str, pwd_context):
-    account = db.query(models.Account).filter(models.Account.user == username).first()
-    if not account:
-        return "Account not found"
-    
-    if not pwd_context.verify(password, account.password):
-        return "Incorrect password"
-
-def check_username_exists(db:Session, username:str):
-    account = db.query(models.Account).filter(models.Account.user == username).first()
-    if account:
-        return account
-    return False
-
-def check_id_exists(db:Session, id:int, table: str):
-    if table == "residents":
-        user = db.query(models.Resident).filter(models.Resident.id == id).first()
-    elif table == "accounts":
-        user = db.query(models.Account).filter(models.Account.id == id).first()
-    if user:
-        return user
-    return False
-
-def delete_resident_image(resident_id: int):
-    # Get base data directory path
-    base_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-    if os.path.exists(base_path):
-        for subfolder in os.listdir(base_path):
-            subfolder_path = os.path.join(base_path, subfolder)
-            if os.path.isdir(subfolder_path):
-                user_path_patterns = [
-                    os.path.join(subfolder_path, str(resident_id)),  # Direct match
-                    os.path.join(subfolder_path, f"{resident_id}.*")  # Files with extensions
-                ]
-                for pattern in user_path_patterns:
-                    matching_paths = glob.glob(pattern)
-                    for path in matching_paths:
-                        try:
-                            if os.path.isfile(path):
-                                os.remove(path)
-                            else:
-                                shutil.rmtree(path)
-                        except Exception as e:
-                            print(f"Error deleting {path}: {str(e)}")
-
-# decode access token    
-def decode_access_token(db:Session, token: str, secret_key: str, algorithm: str):
-    try:
-        payload = jwt.decode(token, secret_key, algorithms=[algorithm])
-        username = payload.get("sub")
-        if not check_username_exists(db, username):
-            return None
-        return username
-    except:
-        return None
-    
-# check valid token
-def check_valid_token(db:Session, token: str, secret_key: str, algorithm: str, username: str):
-    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
-    if not check_username_exists(db, username_exists) or username_exists != username:
-        return False
-    return True
-
-# get smallest ID
-def get_id(db:Session, table: str):
-    if table == "residents":
-        existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
-    elif table == "accounts":
-        existing_ids = [id[0] for id in db.query(models.Account.id).order_by(models.Account.id).all()]
-    next_id = None
-    if existing_ids:
-        for expected_id in range(1, existing_ids[-1] + 1):
-            if expected_id not in existing_ids:
-                next_id = expected_id
-                break
-    return next_id
-
-# Update Account member
-def update_account_member(db:Session, account:models.AccountData):
-    mem_count = len(db.query(models.Resident).filter(models.Resident.user_name == account.user).all())
-    account.member = mem_count
-    db.commit()
-
+import jwt
 
 # WebApp 
 # Login
@@ -127,8 +32,8 @@ def login(db: Session, username: str, password: str, pwd_context, algorithm: str
 
 #get phone number
 def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algorithm:str):
-    username_exists = decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
-    if not check_username_exists(db, username_exists) or username_exists != username:
+    username_exists = auth_service.decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)
+    if not auth_service.check_username_exists(db, username_exists) or username_exists != username:
         return None
     # Query all residents matching the username
     residents = db.query(models.Resident).filter(
@@ -151,7 +56,7 @@ def create_account(db: Session, account: models.AccountData, pwd_context):
     # Hash the password
     hashed_password = pwd_context.hash(account.password)
     # get smallest ID
-    id = get_id(db, "accounts")
+    id = db_service.get_id(db, "accounts")
     # Create new account
     db_account = models.Account(
         id=id,
@@ -187,7 +92,7 @@ def get_all_accounts(db: Session):
     return info
 
 def delete_account_by_id(db: Session, account_id: int):
-    db_account = check_id_exists(db, account_id, "accounts")
+    db_account = auth_service.check_id_exists(db, account_id, "accounts")
     if not db_account:
         return {"success": False, "message": "Account not found"}
     
@@ -196,7 +101,7 @@ def delete_account_by_id(db: Session, account_id: int):
     for resident in residents:
         try:
             db.delete(resident)
-            delete_resident_image(resident.id)
+            db_service.delete_resident_image(resident.id)
         except Exception as e:
             db.rollback()
             return {"success": False, "message": f"Error deleting resident {resident.id}: {str(e)}"}
@@ -216,7 +121,7 @@ def delete_account_by_id(db: Session, account_id: int):
 # get all residents infomation
 def get_residents_data(role: str, db: Session, username: str = None, token: str = None, secret_key: str = None, algorithm: str = None):
     if role == "resident":
-        if not check_valid_token(db, token, secret_key, algorithm, username):
+        if not auth_service.check_valid_token(db, token, secret_key, algorithm, username):
             return {"success": False, "message": "Invalid token"}
         residents = db.query(models.Resident).filter(models.Resident.user_name == username).all()
         if not residents:
@@ -243,11 +148,11 @@ def get_residents_data(role: str, db: Session, username: str = None, token: str 
 def create_new_resident(resident: models.ResidentsData, db: Session, role: str="resident", token: str = None, secret_key: str = None, algorithm: str = None):
     if role == "resident":
         # check valid token
-        if not check_valid_token(db, token, secret_key, algorithm, resident.username):
+        if not auth_service.check_valid_token(db, token, secret_key, algorithm, resident.username):
             return {"success": False, "message": "Invalid token"}
     
-    id = get_id(db, "residents")
-    account = check_username_exists(db, resident.username)
+    id = db_service.get_id(db, "residents")
+    account = auth_service.check_username_exists(db, resident.username)
     if not account:
         return {"success": False, "message": "Username does not exist. Create an account first."}
 
@@ -264,7 +169,7 @@ def create_new_resident(resident: models.ResidentsData, db: Session, role: str="
     try:
         db.add(db_user)
         db.flush()
-        update_account_member(db, account)
+        db_service.update_account_member(db, account)
         return {"success": True, "message": "User created successfully", "id": db_user.id}
     except Exception as e:
         db.rollback()
@@ -272,32 +177,32 @@ def create_new_resident(resident: models.ResidentsData, db: Session, role: str="
     
 # Delete resident by ID
 def delete_resident_by_id(db: Session, user_id: int, role:str="resident",token: str=None, secret_key: str=None, algorithm: str=None):
-    db_user = check_id_exists(db, user_id, "residents")
+    db_user = auth_service.check_id_exists(db, user_id, "residents")
     if not db_user:
         return {"success": False, "message": "User not found"}
 
     if role == "resident":
-        if not check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
+        if not auth_service.check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
             return {"success": False, "message": "Invalid token"}
         
     try:
         db.delete(db_user)
         db.flush()
-        update_account_member(db, check_username_exists(db,db_user.user_name))
+        db_service.update_account_member(db, auth_service.check_username_exists(db,db_user.user_name))
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
-    delete_resident_image(user_id)
+    db_service.delete_resident_image(user_id)
     return {"success": True, "message": "User deleted successfully"}
 
 # Update Resident data by ID
 def update_resident_data_by_id(db: Session, resident_id: int, user: models.ResidentsData, role="resident",token: str=None, secret_key: str=None, algorithm: str=None):
-    db_user = check_id_exists(db, resident_id, "residents")
+    db_user = auth_service.check_id_exists(db, resident_id, "residents")
     if not db_user:
         return {"success": False, "message": "User not found"}
 
     if role == "resident":
-        if not check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
+        if not auth_service.check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
             return {"success": False, "message": "Invalid token"}
 
     
