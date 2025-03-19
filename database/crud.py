@@ -3,6 +3,12 @@ from . import models
 from services import auth_service, db_service
 import datetime
 import jwt
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
+DOMAIN = os.getenv("DOMAIN")
 
 # WebApp 
 # Login
@@ -131,6 +137,13 @@ def get_residents_data(role: str, db: Session, username: str = None, token: str 
 
     info = []
     for resident in residents:
+
+        photo_path = f'/data/pics/{resident.id}/main.jpg'
+        if os.path.exists(f'./data/pics/{resident.id}'):
+            photo_url = DOMAIN + photo_path
+        else:
+            photo_url = ""
+
         data = {
             "id": resident.id,
             "username": resident.user_name,
@@ -139,7 +152,7 @@ def get_residents_data(role: str, db: Session, username: str = None, token: str 
             "gender": resident.gender,
             "phone": resident.phone,
             "email": resident.email,
-            "photoUrl": "/placeholder.svg?height=40&width=40"
+            "photoUrl": photo_url
         }
         info.append(data)
     return info

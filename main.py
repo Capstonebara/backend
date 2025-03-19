@@ -11,6 +11,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials, OAuth2PasswordBear
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from dotenv import load_dotenv
 from fastapi.openapi.utils import get_openapi
+from fastapi.staticfiles import StaticFiles
 import os
 
 # Load environment variables
@@ -30,6 +31,9 @@ app.add_middleware(
     allow_headers=["*"],  # Đảm bảo header Authorization được phép
     expose_headers=["Authorization"],  # Cho phép frontend truy cập header này
 )
+
+os.makedirs("data/pics", exist_ok=True)
+app.mount("/data", StaticFiles(directory="data"), name="data")
 
 # Set up HTTP Basic Authentication
 security = HTTPBasic()
