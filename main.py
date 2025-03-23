@@ -1,10 +1,10 @@
 
-from fastapi import FastAPI, Depends, HTTPException, Security
+from fastapi import FastAPI, Depends, HTTPException, Security, WebSocket, WebSocketDisconnect
 from middleware.http import LogProcessAndTime
 from middleware.corn import CORSMiddleware
 from routes.collectdata import router
 from routes.authentication import authen
-from routes import createUser, cms_admin
+from routes import createUser, cms_admin, logs
 
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials, OAuth2PasswordBearer
@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 import os
+
+
 
 # Load environment variables
 load_dotenv()
@@ -95,6 +97,7 @@ def get_docs(username: str = Depends(authenticate)):
 def get_redoc(username: str = Depends(authenticate)):
     return get_redoc_html(openapi_url=app.openapi_url, title="ReDoc")
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -104,7 +107,6 @@ app.add_middleware(
 )
 app.add_middleware(LogProcessAndTime)
 app.include_router(router)
-# app.include_router(authen)
-# app.include_router(users)
 app.include_router(cms_admin.admin)
 app.include_router(createUser.residents)
+app.include_router(logs.logs)
