@@ -3,7 +3,7 @@ from typing import Dict
 
 logs = APIRouter()
 
-# Class để quản lý kết nối
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
@@ -29,16 +29,14 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+
 @logs.websocket("/logs/{device_id}")
-async def websocket_endpoint(websocket: WebSocket, device_id: str):
+async def websocket_logs(websocket: WebSocket, device_id: str):
     await manager.connect(device_id, websocket)
     try:
         while True:
             data = await websocket.receive_text()
-            if data == "ping":
-                await manager.send_message(device_id, "pong")
-            else:
-                print(f"Received from {device_id}: {data}")
-                # Xử lý log ở đây (ví dụ lưu vào database)
+            await manager.broadcast(data)
+
     except WebSocketDisconnect:
         manager.disconnect(device_id)
