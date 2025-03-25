@@ -236,3 +236,83 @@ def update_resident_data_by_id(db: Session, resident_id: int, user: models.Resid
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
+    
+
+def add_logs_to_db(db: Session, id: int, device_id: str, name: str, photoUrl: str, timestamp: int, type: str, apartment: str):
+    db_log = models.Logs(
+        id=id,
+        device_id=device_id,
+        name=name,
+        photoUrl=photoUrl,
+        timestamp=timestamp,
+        type=type,
+        apartment=apartment
+    )
+    try:
+        db.add(db_log)
+        db.commit()
+        return {"success": True, "message": "Log added successfully", "id": db_log.id}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+    
+def recent_logs(db: Session, day: datetime.date = None):
+    query = db.query(models.Logs)
+    
+    if day:
+        start_of_day = datetime.datetime.combine(day, datetime.time.min)
+        end_of_day = datetime.datetime.combine(day, datetime.time.max)
+        query = query.filter(models.Logs.timestamp >= start_of_day.timestamp(), models.Logs.timestamp <= end_of_day.timestamp())
+    
+    logs = query.order_by(models.Logs.timestamp.desc()).all()
+    info = []
+    for log in logs:
+        data = {
+            "id": log.id,
+            "device_id": log.device_id,
+            "name": log.name,
+            "photoUrl": log.photoUrl,
+            "timestamp": log.timestamp,
+            "type": log.type,
+            "apartment": log.apartment
+        }
+        info.append(data)
+    return info
+
+def get_logs_by_day(db: Session):
+    logs = db.query(models.Logs).order_by(models.Logs.timestamp.desc()).all()
+    grouped_logs = {"Today": []}
+
+    now = datetime.datetime.now()
+    today_start = datetime.datetime.combine(now.date(), datetime.time.min)
+    yesterday_start = today_start - datetime.timedelta(days=1)
+
+    for log in logs:
+        log_data = {
+            "id": log.id,
+            "name": log.name,
+            "photoUrl": log.photoUrl if log.photoUrl else "/placeholder.svg?height=40&width=40",
+            "timestamp": log.timestamp,
+            "type": log.type,
+            "apartment": log.apartment,
+            "device": log.device_id
+        }
+
+        log_time = datetime.datetime.fromtimestamp(log.timestamp)
+        if log_time >= today_start:
+            grouped_logs["Today"].append(log_data)
+        elif log_time >= yesterday_start:
+            if "Yesterday" not in grouped_logs:
+                grouped_logs["Yesterday"] = []
+            grouped_logs["Yesterday"].append(log_data)
+        else:
+            day_key = log_time.strftime("%Y-%m-%d")
+            if day_key not in grouped_logs:
+                grouped_logs[day_key] = []
+            grouped_logs[day_key].append(log_data)
+
+    if "Yesterday" in grouped_logs and not grouped_logs["Yesterday"]:
+        del grouped_logs["Yesterday"]
+
+    return grouped_logs
+

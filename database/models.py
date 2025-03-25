@@ -49,3 +49,15 @@ class ResidentsData(BaseModel):
     gender: str = None
     phone: str = None
     email: str = None
+
+
+class Logs(Base):
+    __tablename__ = "logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String, index=True)
+    name = Column(String, index=True)
+    photoUrl = Column(String, index=True)
+    timestamp = Column(Integer, index=True)
+    type = Column(String, index=True)
+    apartment = Column(String, index=True)
