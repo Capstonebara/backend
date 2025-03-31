@@ -9,6 +9,8 @@ def get_id(db: Session, table: str):
         existing_ids = [id[0] for id in db.query(models.Resident.id).order_by(models.Resident.id).all()]
     elif table == "accounts":
         existing_ids = [id[0] for id in db.query(models.Account.id).order_by(models.Account.id).all()]
+    elif table == "logs":
+        existing_ids = [id[0] for id in db.query(models.Logs.id).order_by(models.Logs.id).all()]
     next_id = None
     if existing_ids:
         for expected_id in range(1, existing_ids[-1] + 1):

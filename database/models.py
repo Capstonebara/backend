@@ -55,6 +55,7 @@ class Logs(Base):
     __tablename__ = "logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, index=True)
     device_id = Column(String, index=True)
     name = Column(String, index=True)
     photoUrl = Column(String, index=True)

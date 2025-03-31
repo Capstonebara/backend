@@ -238,9 +238,13 @@ def update_resident_data_by_id(db: Session, resident_id: int, user: models.Resid
         return {"success": False, "message": str(e)}
     
 
-def add_logs_to_db(db: Session, id: int, device_id: str, name: str, photoUrl: str, timestamp: int, type: str, apartment: str):
+def add_logs_to_db(db: Session, username: str, device_id: str, name: str, photoUrl: str, timestamp: int, type: str, apartment: str):
+
+    id = db_service.get_id(db, "logs")
+
     db_log = models.Logs(
         id=id,
+        username=username,
         device_id=device_id,
         name=name,
         photoUrl=photoUrl,
@@ -316,3 +320,45 @@ def get_logs_by_day(db: Session):
 
     return grouped_logs
 
+def get_logs_by_username(db: Session, username: str, token: str = None, secret_key: str = None, algorithm: str = None):
+    # Authenticate user
+    if not auth_service.check_valid_token(db, token, secret_key, algorithm, username):
+        return {"success": False, "message": "Invalid token"}
+        
+    # Filter logs by username and order by timestamp in descending order
+    logs = db.query(models.Logs).filter(models.Logs.username == username).order_by(models.Logs.timestamp.desc()).all()
+    
+    grouped_logs = {"Today": []}
+
+    now = datetime.datetime.now()
+    today_start = datetime.datetime.combine(now.date(), datetime.time.min)
+    yesterday_start = today_start - datetime.timedelta(days=1)
+
+    for log in logs:
+        log_data = {
+            "id": log.id,
+            "name": log.name,
+            "photoUrl": log.photoUrl if log.photoUrl else "/placeholder.svg?height=40&width=40",
+            "timestamp": log.timestamp,
+            "type": log.type,
+            "apartment": log.apartment,
+            "device": log.device_id
+        }
+
+        log_time = datetime.datetime.fromtimestamp(log.timestamp)
+        if log_time >= today_start:
+            grouped_logs["Today"].append(log_data)
+        elif log_time >= yesterday_start:
+            if "Yesterday" not in grouped_logs:
+                grouped_logs["Yesterday"] = []
+            grouped_logs["Yesterday"].append(log_data)
+        else:
+            day_key = log_time.strftime("%Y-%m-%d")
+            if day_key not in grouped_logs:
+                grouped_logs[day_key] = []
+            grouped_logs[day_key].append(log_data)
+
+    if "Yesterday" in grouped_logs and not grouped_logs["Yesterday"]:
+        del grouped_logs["Yesterday"]
+
+    return grouped_logs

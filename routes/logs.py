@@ -1,4 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.security import OAuth2PasswordBearer
 from typing import List
 from database import crud, models
 from database.database import SessionLocal, engine
@@ -6,11 +7,21 @@ from sqlalchemy.orm import Session
 from fastapi import Depends
 import json
 import asyncio
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 logs = APIRouter()
 
 models.Base.metadata.create_all(bind=engine)
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/login",
+    scheme_name="Bearer"  # This will show up in Swagger UI
+)
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
 
 def get_db():
     db = SessionLocal()
@@ -73,7 +84,7 @@ async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Dep
             # Lưu log vào database
             crud.add_logs_to_db(
                 db=db,
-                id=log_data.get("id"),
+                username = log_data.get("username"),
                 device_id=log_data.get("device_id"),
                 name=log_data.get("name"),
                 photoUrl=log_data.get("photoUrl"),
@@ -112,3 +123,20 @@ def get_recent_logs(db: Session = Depends(get_db)):
 @logs.get("/admin/logs_by_day")
 def get_logs_by_day(db: Session = Depends(get_db)):
     return crud.get_logs_by_day(db=db)
+
+
+
+
+
+@logs.get("/residents/logs_by_day")
+def get_logs_by_username(username: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    return crud.get_logs_by_username(
+        db=db,
+        username=username,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    
+
+
