@@ -64,6 +64,9 @@ class ConnectionManager:
 device_manager = ConnectionManager()
 client_manager = ConnectionManager()
 
+# count logs
+manager_count = ConnectionManager()
+
 
 @logs.websocket("/logs/{device_id}")
 async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Depends(get_db)):
@@ -78,10 +81,8 @@ async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Dep
             if data == "ping":
                 continue
 
-            # Parse dữ liệu JSON
             log_data = json.loads(data)
 
-            # Lưu log vào database
             crud.add_logs_to_db(
                 db=db,
                 username = log_data.get("username"),
@@ -92,8 +93,6 @@ async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Dep
                 type=log_data.get("type"),
                 apartment=log_data.get("apartment"),
             )
-
-            print(f"Log received and saved: {log_data}")
 
             # send log -> client
             await client_manager.broadcast(json.dumps(log_data))
@@ -124,10 +123,6 @@ def get_recent_logs(db: Session = Depends(get_db)):
 def get_logs_by_day(db: Session = Depends(get_db)):
     return crud.get_logs_by_day(db=db)
 
-
-
-
-
 @logs.get("/residents/logs_by_day")
 def get_logs_by_username(username: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     return crud.get_logs_by_username(
@@ -138,5 +133,70 @@ def get_logs_by_username(username: str, db: Session = Depends(get_db), token: st
         algorithm=ALGORITHM
     )
     
+@logs.get("/residents/recent_logs")
+def get_recent_logs_username(username: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    return crud.recent_logs_by_username(
+        db=db,
+        username=username,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
 
 
+@logs.websocket("/admin/logs_total_ws")
+async def logs_total_websocket(websocket: WebSocket, db: Session = Depends(get_db)):
+    """
+    WebSocket endpoint để cung cấp dữ liệu logs total theo thời gian thực.
+    """
+    await manager_count.connect(websocket)
+    try:
+        while True:
+            logs_data = crud.get_logs_total(db=db)
+
+            logs_json = json.dumps(logs_data)
+
+            await websocket.send_text(logs_json)
+
+            await asyncio.sleep(1)  # Cập nhật mỗi 3 giây
+    except WebSocketDisconnect:
+        manager_count.disconnect(websocket)
+    except Exception as e:
+        print(f"Error in WebSocket connection: {e}")
+        manager_count.disconnect(websocket)
+
+
+@logs.websocket("/residents/logs_total_ws")
+async def logs_total_websocket_residents(
+    websocket: WebSocket, 
+    username: str, 
+    db: Session = Depends(get_db)
+):
+    """
+    WebSocket endpoint để cung cấp dữ liệu logs total theo thời gian thực cho residents.
+    """
+    await manager_count.connect(websocket)
+    try:
+        # Extract token from query parameters
+        token = websocket.query_params.get("token")
+        if not token:
+            await websocket.close(code=1008, reason="Missing token")
+            return
+            
+        while True:
+            logs_data = crud.get_logs_by_username_ws(
+                db=db,
+                username=username,
+                token=token,
+                secret_key=SECRET_KEY,
+                algorithm=ALGORITHM
+            )
+
+            logs_json = json.dumps(logs_data)
+            await websocket.send_text(logs_json)
+            await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        manager_count.disconnect(websocket)
+    except Exception as e:
+        print(f"Error in WebSocket connection: {e}")
+        manager_count.disconnect(websocket)

@@ -4,6 +4,7 @@ from services import auth_service, db_service
 import datetime
 import jwt
 import os
+import time
 from dotenv import load_dotenv
 
 
@@ -362,3 +363,99 @@ def get_logs_by_username(db: Session, username: str, token: str = None, secret_k
         del grouped_logs["Yesterday"]
 
     return grouped_logs
+
+def recent_logs_by_username(username: str, db: Session, day: datetime.date = None, token: str = None, secret_key: str = None, algorithm: str = None):
+    # Authenticate user
+    if not auth_service.check_valid_token(db, token, secret_key, algorithm, username):
+        return {"success": False, "message": "Invalid token"}
+    
+    # Filter logs by username and order by timestamp in descending order
+    query = db.query(models.Logs).filter(models.Logs.username == username)
+    
+    if day:
+        start_of_day = datetime.datetime.combine(day, datetime.time.min)
+        end_of_day = datetime.datetime.combine(day, datetime.time.max)
+        query = query.filter(models.Logs.timestamp >= start_of_day.timestamp(), models.Logs.timestamp <= end_of_day.timestamp())
+    
+    logs = query.order_by(models.Logs.timestamp.desc()).all()
+    info = []
+    for log in logs:
+        data = {
+            "id": log.id,
+            "device_id": log.device_id,
+            "name": log.name,
+            "photoUrl": log.photoUrl,
+            "timestamp": log.timestamp,
+            "type": log.type,
+            "apartment": log.apartment
+        }
+        info.append(data)
+    return info
+
+def get_logs_total(db: Session):
+    # Get today's logs totals
+    total_account = db.query(models.Account).count()
+    total_resident = db.query(models.Resident).count()
+    
+    # Get today's date range
+    today = datetime.date.today()
+    start_of_day = datetime.datetime.combine(today, datetime.time.min)
+    end_of_day = datetime.datetime.combine(today, datetime.time.max)
+    
+    # Filter queries by today's date
+    entry_query = db.query(models.Logs).filter(
+        models.Logs.type == "entry",
+        models.Logs.timestamp >= start_of_day.timestamp(),
+        models.Logs.timestamp <= end_of_day.timestamp()
+    )
+    
+    exit_query = db.query(models.Logs).filter(
+        models.Logs.type == "exit",
+        models.Logs.timestamp >= start_of_day.timestamp(),
+        models.Logs.timestamp <= end_of_day.timestamp()
+    )
+    
+    total_entry = entry_query.count()
+    total_exit = exit_query.count()
+
+    return {
+        'total_account': total_account,
+        'total_resident': total_resident,
+        'total_entry': total_entry,
+        'total_exit': total_exit
+    }
+
+def get_logs_by_username_ws(db: Session, username: str, token: str = None, secret_key: str = None, algorithm: str = None):
+    # Authenticate user
+    if not auth_service.check_valid_token(db, token, secret_key, algorithm, username):
+        return {"success": False, "message": "Invalid token"}
+        
+    # Get today's logs totals
+    total_resident = db.query(models.Resident).filter(models.Resident.user_name == username).count()
+
+    # Get today's date range
+    today = datetime.date.today()
+    start_of_day = datetime.datetime.combine(today, datetime.time.min)
+    end_of_day = datetime.datetime.combine(today, datetime.time.max)
+    
+    # Filter queries by today's date and get counts
+    total_entry = db.query(models.Logs).filter(
+        models.Logs.username == username,
+        models.Logs.type == "entry",
+        models.Logs.timestamp >= start_of_day.timestamp(),
+        models.Logs.timestamp <= end_of_day.timestamp()
+    ).count()
+    
+    total_exit = db.query(models.Logs).filter(
+        models.Logs.username == username,
+        models.Logs.type == "exit",
+        models.Logs.timestamp >= start_of_day.timestamp(),
+        models.Logs.timestamp <= end_of_day.timestamp()
+    ).count()
+
+    return {
+        'total_resident': total_resident,
+        'total_entry': total_entry,
+        'total_exit': total_exit
+    }
+
