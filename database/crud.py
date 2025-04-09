@@ -239,7 +239,7 @@ def update_resident_data_by_id(db: Session, resident_id: int, user: models.Resid
         return {"success": False, "message": str(e)}
     
 
-def add_logs_to_db(db: Session, username: str, device_id: str, name: str, photoUrl: str, timestamp: int, type: str, apartment: str):
+def add_logs_to_db(db: Session, username: str, device_id: str, name: str, timestamp: int, type: str, apartment: str):
 
     id = db_service.get_id(db, "logs")
 
@@ -248,7 +248,6 @@ def add_logs_to_db(db: Session, username: str, device_id: str, name: str, photoU
         username=username,
         device_id=device_id,
         name=name,
-        photoUrl=photoUrl,
         timestamp=timestamp,
         type=type,
         apartment=apartment
@@ -256,10 +255,11 @@ def add_logs_to_db(db: Session, username: str, device_id: str, name: str, photoU
     try:
         db.add(db_log)
         db.commit()
-        return {"success": True, "message": "Log added successfully", "id": db_log.id}
+        return db_log.id
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
+
     
 def recent_logs(db: Session, day: datetime.date = None):
     query = db.query(models.Logs)
@@ -384,10 +384,10 @@ def recent_logs_by_username(username: str, db: Session, day: datetime.date = Non
             "id": log.id,
             "device_id": log.device_id,
             "name": log.name,
-            "photoUrl": log.photoUrl,
             "timestamp": log.timestamp,
             "type": log.type,
-            "apartment": log.apartment
+            "apartment": log.apartment,
+            "captured": DOMAIN + f"/data/logs/{log.id}.jpg"
         }
         info.append(data)
     return info
@@ -459,3 +459,8 @@ def get_logs_by_username_ws(db: Session, username: str, token: str = None, secre
         'total_exit': total_exit
     }
 
+
+def captured_pics():
+    photo_path = f'/data/pics/sample-log.jpg'
+    photo_url = DOMAIN + photo_path
+    return photo_url

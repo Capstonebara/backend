@@ -40,7 +40,7 @@ class ConnectionManager:
         """
         Chấp nhận kết nối WebSocket và thêm vào danh sách kết nối đang hoạt động.
         """
-        await websocket.accept()  # Chấp nhận kết nối
+        await websocket.accept()
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
@@ -71,35 +71,58 @@ manager_count = ConnectionManager()
 @logs.websocket("/logs/{device_id}")
 async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Depends(get_db)):
     """
-    Endpoint nhận log từ thiết bị và lưu vào database.
+    WebSocket endpoint to receive both text (logs) and binary (images) from a device.
     """
     await device_manager.connect(websocket)
     try:
         while True:
-            data = await websocket.receive_text()
+            # Receive a message from the client
+            message = await websocket.receive()
 
-            if data == "ping":
-                continue
+            # Check if the message is text or binary
+            if "text" in message:
+                data = message["text"]
 
-            log_data = json.loads(data)
+                if data == "ping":
+                    print(f"Ping received from device {device_id}")
+                    continue
 
-            crud.add_logs_to_db(
-                db=db,
-                username = log_data.get("username"),
-                device_id=log_data.get("device_id"),
-                name=log_data.get("name"),
-                photoUrl=log_data.get("photoUrl"),
-                timestamp=int(log_data.get("timestamp")),
-                type=log_data.get("type"),
-                apartment=log_data.get("apartment"),
-            )
+                try:
+                    # Parse log data as JSON
+                    log_data = json.loads(data)
+                    print("Data received:", log_data)
 
-            # send log -> client
-            await client_manager.broadcast(json.dumps(log_data))
+                    # Save log data to the database
+                    res = crud.add_logs_to_db(
+                        db=db,
+                        username=log_data.get("username"),
+                        device_id=log_data.get("device_id"),
+                        name=log_data.get("name"),
+                        timestamp=int(log_data.get("timestamp")),
+                        type=log_data.get("type"),
+                        apartment=log_data.get("apartment"),
+                    )
+
+                    # Broadcast log data to clients
+                    await client_manager.broadcast(json.dumps(log_data))
+                except json.JSONDecodeError as e:
+                    print(f"Failed to decode JSON: {e}")
+
+            elif "bytes" in message:
+                image_data = message["bytes"]
+
+                # Save the received image to a file
+                file_path = f"./data/logs/{res}.jpg"
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                with open(file_path, "wb") as img_file:
+                    img_file.write(image_data)
+
+                print(f"Image received from device {device_id} and saved to {file_path}")
 
     except WebSocketDisconnect:
         device_manager.disconnect(websocket)
         print(f"Device {device_id} disconnected")
+        
 
 @logs.websocket("/client_logs")
 async def websocket_client_logs(websocket: WebSocket):
@@ -200,3 +223,15 @@ async def logs_total_websocket_residents(
     except Exception as e:
         print(f"Error in WebSocket connection: {e}")
         manager_count.disconnect(websocket)
+
+@logs.get("/get-logs")
+async def captured_logs(
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme)
+):
+    """
+    Endpoint để lấy logs từ database.
+    """
+    logs_data = crud.captured_pics()
+    
+    return logs_data

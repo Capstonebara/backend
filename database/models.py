@@ -58,7 +58,6 @@ class Logs(Base):
     username = Column(String, index=True)
     device_id = Column(String, index=True)
     name = Column(String, index=True)
-    photoUrl = Column(String, index=True)
     timestamp = Column(Integer, index=True)
     type = Column(String, index=True)
     apartment = Column(String, index=True)
