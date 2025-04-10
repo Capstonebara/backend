@@ -276,7 +276,6 @@ def recent_logs(db: Session, day: datetime.date = None):
             "id": log.id,
             "device_id": log.device_id,
             "name": log.name,
-            "photoUrl": log.photoUrl,
             "timestamp": log.timestamp,
             "type": log.type,
             "apartment": log.apartment
@@ -296,7 +295,6 @@ def get_logs_by_day(db: Session):
         log_data = {
             "id": log.id,
             "name": log.name,
-            "photoUrl": log.photoUrl if log.photoUrl else "/placeholder.svg?height=40&width=40",
             "timestamp": log.timestamp,
             "type": log.type,
             "apartment": log.apartment,
@@ -339,11 +337,11 @@ def get_logs_by_username(db: Session, username: str, token: str = None, secret_k
         log_data = {
             "id": log.id,
             "name": log.name,
-            "photoUrl": log.photoUrl if log.photoUrl else "/placeholder.svg?height=40&width=40",
             "timestamp": log.timestamp,
             "type": log.type,
             "apartment": log.apartment,
-            "device": log.device_id
+            "device_id": log.device_id,
+            "captured": DOMAIN + f"/data/logs/{log.id}.jpg"
         }
 
         log_time = datetime.datetime.fromtimestamp(log.timestamp)
@@ -392,7 +390,7 @@ def recent_logs_by_username(username: str, db: Session, day: datetime.date = Non
         info.append(data)
     return info
 
-def get_logs_total(db: Session):
+def get_stats_admin(db: Session):
     # Get today's logs totals
     total_account = db.query(models.Account).count()
     total_resident = db.query(models.Resident).count()
@@ -425,7 +423,7 @@ def get_logs_total(db: Session):
         'total_exit': total_exit
     }
 
-def get_logs_by_username_ws(db: Session, username: str, token: str = None, secret_key: str = None, algorithm: str = None):
+def get_stats_residents(db: Session, username: str, token: str = None, secret_key: str = None, algorithm: str = None):
     # Authenticate user
     if not auth_service.check_valid_token(db, token, secret_key, algorithm, username):
         return {"success": False, "message": "Invalid token"}
@@ -458,9 +456,3 @@ def get_logs_by_username_ws(db: Session, username: str, token: str = None, secre
         'total_entry': total_entry,
         'total_exit': total_exit
     }
-
-
-def captured_pics():
-    photo_path = f'/data/pics/sample-log.jpg'
-    photo_url = DOMAIN + photo_path
-    return photo_url

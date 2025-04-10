@@ -168,14 +168,14 @@ def get_recent_logs_username(username: str, db: Session = Depends(get_db), token
 
 
 @logs.websocket("/admin/logs_total_ws")
-async def logs_total_websocket(websocket: WebSocket, db: Session = Depends(get_db)):
+async def get_stats_admin(websocket: WebSocket, db: Session = Depends(get_db)):
     """
     WebSocket endpoint để cung cấp dữ liệu logs total theo thời gian thực.
     """
     await manager_count.connect(websocket)
     try:
         while True:
-            logs_data = crud.get_logs_total(db=db)
+            logs_data = crud.get_stats_admin(db=db)
 
             logs_json = json.dumps(logs_data)
 
@@ -189,49 +189,12 @@ async def logs_total_websocket(websocket: WebSocket, db: Session = Depends(get_d
         manager_count.disconnect(websocket)
 
 
-@logs.websocket("/residents/logs_total_ws")
-async def logs_total_websocket_residents(
-    websocket: WebSocket, 
-    username: str, 
-    db: Session = Depends(get_db)
-):
-    """
-    WebSocket endpoint để cung cấp dữ liệu logs total theo thời gian thực cho residents.
-    """
-    await manager_count.connect(websocket)
-    try:
-        # Extract token from query parameters
-        token = websocket.query_params.get("token")
-        if not token:
-            await websocket.close(code=1008, reason="Missing token")
-            return
-            
-        while True:
-            logs_data = crud.get_logs_by_username_ws(
-                db=db,
-                username=username,
-                token=token,
-                secret_key=SECRET_KEY,
-                algorithm=ALGORITHM
-            )
-
-            logs_json = json.dumps(logs_data)
-            await websocket.send_text(logs_json)
-            await asyncio.sleep(1)
-    except WebSocketDisconnect:
-        manager_count.disconnect(websocket)
-    except Exception as e:
-        print(f"Error in WebSocket connection: {e}")
-        manager_count.disconnect(websocket)
-
-@logs.get("/get-logs")
-async def captured_logs(
-    db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
-):
-    """
-    Endpoint để lấy logs từ database.
-    """
-    logs_data = crud.captured_pics()
-    
-    return logs_data
+@logs.get("/residents/logs_total_residents")
+async def get_stats_residents(username: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    return crud.get_stats_residents(
+        db=db,
+        username=username,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
