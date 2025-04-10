@@ -255,7 +255,7 @@ def add_logs_to_db(db: Session, username: str, device_id: str, name: str, timest
     try:
         db.add(db_log)
         db.commit()
-        return db_log.id
+        return {"id": db_log.id, "captured": DOMAIN + f"/data/logs/{db_log.id}.jpg"}
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
@@ -278,7 +278,8 @@ def recent_logs(db: Session, day: datetime.date = None):
             "name": log.name,
             "timestamp": log.timestamp,
             "type": log.type,
-            "apartment": log.apartment
+            "apartment": log.apartment,
+            "captured": DOMAIN + f"/data/logs/{log.id}.jpg"
         }
         info.append(data)
     return info
@@ -298,7 +299,8 @@ def get_logs_by_day(db: Session):
             "timestamp": log.timestamp,
             "type": log.type,
             "apartment": log.apartment,
-            "device": log.device_id
+            "device": log.device_id,
+            "captured": DOMAIN + f"/data/logs/{log.id}.jpg"
         }
 
         log_time = datetime.datetime.fromtimestamp(log.timestamp)

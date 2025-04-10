@@ -102,17 +102,20 @@ async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Dep
                         type=log_data.get("type"),
                         apartment=log_data.get("apartment"),
                     )
+                    
+                    # Add captured field from database result
+                    log_data["captured"] = res["captured"]
 
                     # Broadcast log data to clients
                     await client_manager.broadcast(json.dumps(log_data))
                 except json.JSONDecodeError as e:
-                    print(f"Failed to decode JSON: {e}")
+                    pass
 
             elif "bytes" in message:
                 image_data = message["bytes"]
 
                 # Save the received image to a file
-                file_path = f"./data/logs/{res}.jpg"
+                file_path = f"./data/logs/{res["id"]}.jpg"
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 with open(file_path, "wb") as img_file:
                     img_file.write(image_data)
