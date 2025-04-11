@@ -11,7 +11,7 @@ class EdgeFaceKAN(nn.Module):
                  global_block=[0, 1, 1, 1], global_block_type=['None', 'SDTA', 'SDTA', 'SDTA'],
                  drop_path_rate=0., layer_scale_init_value=1e-6, head_init_scale=1., expan_ratio=4,
                  kernel_sizes=[3, 5, 7, 9], heads=[4, 4, 4, 4], use_pos_embd_xca=[False, True, False, False],
-                 use_pos_embd_global=False, d2_scales=[2, 2, 3, 4], grid_size=25, spline_order=3,
+                 use_pos_embd_global=False, d2_scales=[2, 2, 3, 4], grid_size=5, spline_order=3,
                  base_activation=nn.SiLU(), neuron_fun=None, noise_type=None):
         super().__init__()
         if rank_ratio == 0.6:
@@ -24,7 +24,7 @@ class EdgeFaceKAN(nn.Module):
             self.pos_embd = PositionalEncodingFourier(dim=dims[0])
         else:
             self.pos_embd = None
-        self.downsample_layers = nn.ModuleList()  # stem and 3 intermediate downsampling conv layers
+        self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
             nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
@@ -37,7 +37,7 @@ class EdgeFaceKAN(nn.Module):
             )
             self.downsample_layers.append(downsample_layer)
 
-        self.stages = nn.ModuleList()  # 4 feature resolution stages, each consisting of multiple residual blocks
+        self.stages = nn.ModuleList()
         dp_rates = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
         cur = 0
         for i in range(4):
@@ -57,8 +57,7 @@ class EdgeFaceKAN(nn.Module):
 
             self.stages.append(nn.Sequential(*stage_blocks))
             cur += depths[i]
-        self.norm = nn.LayerNorm(dims[-1], eps=1e-6)  # Final norm layer
-        # print(f"grid_size in EdgeFaceKAN: {grid_size}")
+        self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
         self.head = KANLinear(dims[-1], num_features,
             num=grid_size,
             k=spline_order,
@@ -88,6 +87,7 @@ class EdgeFaceKAN(nn.Module):
             x = self.stages[i](x)
 
         return self.norm(x.mean([-2, -1]))  # Global average pooling, (N, C, H, W) -> (N, C)
+
 
     def forward(self, x):
         x = self.forward_features(x)
