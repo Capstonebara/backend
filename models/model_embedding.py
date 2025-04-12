@@ -30,9 +30,9 @@ from .EdgeFaceKan import EdgeFaceKAN
 #     print(embedding)
 
 class EmbeddingModel:
-    def __init__(self, weight_path="models/EdgeFaceKAN_mean_06_15_cos_512/model.pt"):
+    def __init__(self, weight_path="models/EdgeFaceKAN_mean_05_30_arc_512/model.pt"):
 
-        self.model = EdgeFaceKAN(num_features = 512, grid_size = 15, rank_ratio = 0.6, neuron_fun="mean")
+        self.model = EdgeFaceKAN(num_features = 512, grid_size = 30, rank_ratio = 0.5, neuron_fun="mean")
         checkpoint = torch.load(weight_path, map_location=torch.device("cpu"))
         self.model.load_state_dict(checkpoint)
         self.model.eval()
@@ -53,4 +53,4 @@ class EmbeddingModel:
         with torch.no_grad():
             embedding = self.model(image_tensor)
 
-        return embedding.cpu().numpy().tolist()
+        return embedding.cpu().numpy().flatten().tolist()

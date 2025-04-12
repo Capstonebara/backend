@@ -60,3 +60,7 @@ def get_all_accounts(db: Session = Depends(get_db)):
 @admin.delete("/admin/delete_account")
 def delete_account(account_id: int, db: Session = Depends(get_db)):
     return crud.delete_account_by_id(db=db, account_id=account_id)
+
+@admin.put("/admin/update_account")
+def config_status_user(username: str, db: Session = Depends(get_db)):
+    return crud.config_status_user(db=db, username=username)

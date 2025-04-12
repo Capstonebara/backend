@@ -458,3 +458,24 @@ def get_stats_residents(db: Session, username: str, token: str = None, secret_ke
         'total_entry': total_entry,
         'total_exit': total_exit
     }
+
+
+def config_status_user(db: Session, username: str):
+    
+    # Check if the account exists
+    account = db.query(models.Account).filter(models.Account.user == username).first()
+    if not account:
+        return {"success": False, "message": "Account not found"}
+
+    try:
+        if account.status == False:
+            account.status = True
+            db.commit()
+            return {"success": True, "message": "Account activated successfully"}
+        else:
+            account.status = False
+            db.commit()
+            return {"success": True, "message": "Account deactivated successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
