@@ -62,7 +62,7 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-@residents.post("/login/")
+@residents.post("/login")
 def login_route(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     result = crud.login(
         db=db,
