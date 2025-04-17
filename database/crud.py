@@ -37,6 +37,19 @@ def login(db: Session, username: str, password: str, pwd_context, algorithm: str
         "token": access_token
     }
 
+#checking token expiration
+def check_token_expiration(token: str, secret_key: str, algorithm: str):
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=[algorithm])
+        exp = payload.get("exp")
+        if exp and datetime.datetime.fromtimestamp(exp) < datetime.datetime.utcnow():
+            return {"success": False, "message": "Token has expired"}
+    except jwt.ExpiredSignatureError:
+        return {"success": False, "message": "Token has expired"}
+    except jwt.InvalidTokenError:
+        return {"success": False, "message": "Invalid token"}
+    return {"success": True, "message": "Token is valid"}
+
 #get phone number
 def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algorithm:str):
     username_exists = auth_service.decode_access_token(db=db, token=token, secret_key=secret_key, algorithm=algorithm)

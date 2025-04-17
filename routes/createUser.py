@@ -82,6 +82,17 @@ def login_route(response: Response, form_data: OAuth2PasswordRequestForm = Depen
         "message": result["message"]
     }
 
+@residents.get("/checking_token")
+def checking_token_expiration(
+    token: str
+):
+    result = crud.check_token_expiration(
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    
+    return result
 
 @residents.get("/residents/me")
 def get_username_from_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
