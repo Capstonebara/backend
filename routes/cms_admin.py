@@ -23,7 +23,7 @@ def get_db():
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Create a new account for resident
-@admin.post("/register/")
+@admin.post("/register")
 def register_account(account: models.AccountData, db: Session = Depends(get_db)):
     return crud.create_account(
         account=account,
