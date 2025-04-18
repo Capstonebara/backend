@@ -1,9 +1,26 @@
-from fastapi import APIRouter, BackgroundTasks, UploadFile, File
 import os
+import hashlib
 import json
-from datetime import datetime
+import shutil
+import tempfile
 import pytz
+import zipfile
+from fastapi.responses import FileResponse
+
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from datetime import datetime
+from database import crud
+from sqlalchemy.orm import Session
+from database.database import SessionLocal
 from services.extract_embedding import embed_images, extract_zip
+
+# Dependency for getting DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 router = APIRouter()
 
@@ -71,6 +88,16 @@ def process_embedding(base_folder: str, embed_folder: str, specific_folder: str)
         print(f"Error processing folder {specific_folder}: {str(e)}")
         return None
 
+def calc_md5(folder_path: str):
+    md5 = hashlib.md5()
+    for root, _, files in os.walk(folder_path):
+        for file in sorted(files):
+            file_path = os.path.join(root, file)
+            with open(file_path, 'rb') as f:
+                while chunk := f.read(8192):
+                    md5.update(chunk)
+    return md5.hexdigest()
+
 @router.post("/embed")
 async def embed(file: UploadFile = File(...), folder_id: int = None):
     # Create necessary folders if they don't exist
@@ -129,3 +156,52 @@ async def embed(file: UploadFile = File(...), folder_id: int = None):
         "message": "done",
         "processed_folder": extracted_folder
     }
+
+@router.get("/sync-metadata")
+def get_sync_metadata(db: Session = Depends(get_db)):
+    base_path = "data/embeds"
+    folders = os.listdir(base_path)
+    result = []
+
+    for folder in folders:
+        if folder.isdigit():
+            folder_path = os.path.join(base_path, folder)
+            if os.path.isdir(folder_path):
+                resident = crud.get_resident_by_id(int(folder), db)
+                if resident:
+                    md5 = calc_md5(folder_path)
+                    result.append({
+                        "id": folder,
+                        "name": resident.name,
+                        "md5": md5,
+                    })
+
+    return result
+
+
+@router.get("/download-embeds/{id}")
+def download_single_embed(id: int, db: Session = Depends(get_db)):
+    base_path = f"data/embeds/{id}"
+    if not os.path.exists(base_path):
+        raise HTTPException(status_code=404, detail="Embed folder not found")
+
+    resident = crud.get_resident_by_id(id, db)
+    if not resident:
+        raise HTTPException(status_code=404, detail="Resident not found")
+
+    folder_name = f"{id}_[{resident.name}]"
+
+    temp_dir = tempfile.mkdtemp()
+    temp_folder_path = os.path.join(temp_dir, folder_name)
+    shutil.copytree(base_path, temp_folder_path)
+
+    zip_path = os.path.join(temp_dir, f"{folder_name}.zip")
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for root, _, files in os.walk(temp_folder_path):
+            for file in files:
+                abs_path = os.path.join(root, file)
+                rel_path = os.path.relpath(abs_path, temp_folder_path)
+                zipf.write(abs_path, arcname=os.path.join(folder_name, rel_path))
+
+    return FileResponse(path=zip_path, filename=f"{folder_name}.zip", media_type="application/zip")
+

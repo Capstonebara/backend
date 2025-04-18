@@ -492,3 +492,10 @@ def config_status_user(db: Session, username: str):
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
+    
+def get_resident_by_id(id: int, db: Session):
+    # Check if the resident exists
+    resident = db.query(models.Resident).filter(models.Resident.id == id).first()
+    if not resident:
+        return {"success": False, "message": "Resident not found"}
+    return resident

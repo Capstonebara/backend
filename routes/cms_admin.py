@@ -1,7 +1,5 @@
 from fastapi import APIRouter
 from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import Response
 
 from sqlalchemy.orm import Session
 
