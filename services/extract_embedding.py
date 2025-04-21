@@ -26,7 +26,10 @@ def embed_images(extracted_dir):
 
     for root, dirs, files in os.walk(extracted_dir):
         for file in files:
-            if file.endswith(('.png', '.jpg', '.jpeg')):  
+            if file.endswith(('.png', '.jpg', '.jpeg')):
+                 # Skip files named main.jpg, main.png, etc.
+                if file.startswith('main.'):
+                    continue
                 image_path = os.path.join(root, file)
                 embedding = embedding_model.embed(image_path)  
                 results.append(embedding)
