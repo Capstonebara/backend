@@ -30,9 +30,9 @@ import cv2
 #     print(embedding)
 
 class EmbeddingModel:
-    def __init__(self, weight_path="models/05_15_arc_512_new_augument/model.pt"):
+    def __init__(self, weight_path="models/kanface_06_25_128_custom.pth"):
 
-        self.model = EdgeFaceKAN(num_features = 512, grid_size = 15, rank_ratio = 0.5, neuron_fun="mean")
+        self.model = EdgeFaceKAN(num_features = 128, grid_size = 25, rank_ratio = 0.6, neuron_fun="mean")
         checkpoint = torch.load(weight_path, map_location=torch.device("cpu"))
         self.model.load_state_dict(checkpoint)
         self.model.eval()
