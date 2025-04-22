@@ -1,8 +1,8 @@
 import torch
 # from facenet_pytorch import InceptionResnetV1  # FaceNet model
-from PIL import Image
 import torchvision.transforms as transforms
 from .EdgeFaceKan import EdgeFaceKAN
+import cv2
 
 # Sử dụng mô hình pre-trained FaceNet
 # class EmbeddingModel:
@@ -39,14 +39,16 @@ class EmbeddingModel:
 
         
         self.transform = transforms.Compose([
-            transforms.Resize((112, 112)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
 
     def embed(self, image_path):
         
-        image = Image.open(image_path).convert("RGB")
+        image = cv2.imread(image_path)
+        image = cv2.resize(image, (112, 112))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
         image_tensor = self.transform(image).unsqueeze(0)
 
         
