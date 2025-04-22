@@ -1,16 +1,19 @@
-from fastapi import APIRouter
-from fastapi import Depends, HTTPException
+import os
+from fastapi import APIRouter, Response
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+from passlib.context import CryptContext
+
 
 from database import models, crud
 from database.database import SessionLocal, engine
 
-authen = APIRouter()
-
-# Tạo tất cả các bảng trong CSDL
+load_dotenv()
+auth = APIRouter()
 models.Base.metadata.create_all(bind=engine)
 
-# Dependency for getting DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -18,104 +21,53 @@ def get_db():
     finally:
         db.close()
 
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/login",
+    scheme_name="Bearer"
+)
 
-@authen.get("/auth/{email}")
-def read_user(email: str, db: Session = Depends(get_db)):
-    db_user = crud.get_email(db, email=email.lower())
-    if db_user is None:
-        return {
-            "status": False
-        }
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+
+@auth.post("/login")
+def login_user(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    result = crud.login(
+        db=db,
+        username=form_data.username,
+        password=form_data.password,
+        pwd_context=pwd_context,
+        algorithm=ALGORITHM,
+        secret_key=SECRET_KEY,
+        access_token_expire_minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+    )
     
-    reg = crud.get_status(db, email=email.lower())
-
+    if result["success"]:
+        response.headers["Authorization"] = f"Bearer {result['token']}"
+        
     return {
-        "idx": db_user.id,
-        "status": True,
-        "reg": reg
+        "success": result["success"],
+        "message": result["message"]
     }
 
-
-# @authen.post("/update-reg/{email}")
-# def update_reg(email: str, db: Session = Depends(get_db)):
-#     updated_user = crud.update_registration_status(db, email=email.lower(), status=1)
-#     if not updated_user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return {
-#         "status": True,
-#         "message": "Registration status updated successfully",
-#         "user": {
-#             "email": updated_user.email,
-#             "reg": updated_user.reg
-#         }
-#     }
-
-# @authen.post("/reset-reg/{email}")
-# def update_reg(email: str, db: Session = Depends(get_db)):
-#     updated_user = crud.update_registration_reset(db, email=email.lower(), status=0)
-#     if not updated_user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return {
-#         "status": True,
-#         "message": "Reset Registration status updated successfully",
-#         "user": {
-#             "email": updated_user.email,
-#             "reg": updated_user.reg
-#         }
-#     }       
-
-# @authen.post("/update-status/{user_id}")
-# def update_le_hoi(user_id: int, status: str, db: Session = Depends(get_db)):
-#     if status == "le":
-#         updated_user = crud.update_registration_le_status(db, user_id=user_id)
-#         if not updated_user:
-#             raise HTTPException(status_code=404, detail="User not found")
-#         # Reset other statuses
-#         updated_user = crud.update_registration_tiec_reset(db, user_id=user_id)
-#         updated_user = crud.update_registration_cahai_reset(db, user_id=user_id)
-#         return {
-#             "status": True,
-#             "message": "Lễ status updated successfully",
-#             "user": {
-#                 "id": updated_user.id,
-#                 "email": updated_user.email,
-#                 "le": updated_user.le
-#             }
-#         }
+@auth.get("/checking_token")
+def checking_token_expiration(
+    token: str
+):
+    result = crud.check_token_expiration(
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
     
-#     elif status == "tiec":
-#         updated_user = crud.update_registration_tiec_status(db, user_id=user_id)
-#         if not updated_user:
-#             raise HTTPException(status_code=404, detail="User not found")
-#         # Reset other statuses
-#         updated_user = crud.update_registration_le_reset(db, user_id=user_id)
-#         updated_user = crud.update_registration_cahai_reset(db, user_id=user_id)
-#         return {
-#             "status": True,
-#             "message": "Tiệc status updated successfully",
-#             "user": {
-#                 "id": updated_user.id,
-#                 "email": updated_user.email,
-#                 "tiec": updated_user.tiec
-#             }
-#         }
-    
-#     elif status == "cahai":
-#         updated_user = crud.update_registration_cahai_status(db, user_id=user_id)
-#         if not updated_user:
-#             raise HTTPException(status_code=404, detail="User not found")
-#         # Reset other statuses
-#         updated_user = crud.update_registration_le_reset(db, user_id=user_id)
-#         updated_user = crud.update_registration_tiec_reset(db, user_id=user_id)
-#         return {
-#             "status": True,
-#             "message": "Cả hai status updated successfully",
-#             "user": {
-#                 "id": updated_user.id,
-#                 "email": updated_user.email,
-#                 "cahai": updated_user.cahai
-#             }
-#         }
-    
-    # else:
-    #     raise HTTPException(status_code=400, detail="Invalid status value")
+    return result
+
+@auth.post("/register")
+def register_account(account: models.AccountData, db: Session = Depends(get_db)):
+    return crud.create_account(
+        account=account,
+        db=db,  
+        pwd_context=pwd_context
+    )

@@ -2,9 +2,12 @@
 from fastapi import FastAPI, Depends, HTTPException, Security, WebSocket, WebSocketDisconnect
 from middleware.http import LogProcessAndTime
 from middleware.corn import CORSMiddleware
-from routes.collectdata import router
-from routes.authentication import authen
-from routes import createUser, cms_admin, logs
+
+from routes.service import service
+from routes.authentication import auth
+from routes.residents import residents
+from routes.admin import admin
+from routes.logs import logs
 
 
 from fastapi.security import HTTPBasic, HTTPBasicCredentials, OAuth2PasswordBearer
@@ -16,10 +19,8 @@ import os
 
 
 
-# Load environment variables
 load_dotenv()
 
-# Get credentials from the .env file
 VALID_USERNAME = os.getenv("VALID_USERNAME")
 VALID_PASSWORD = os.getenv("VALID_PASSWORD")
 
@@ -30,14 +31,13 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],  # Đảm bảo header Authorization được phép
-    expose_headers=["Authorization"],  # Cho phép frontend truy cập header này
+    allow_headers=["*"],  
+    expose_headers=["Authorization"],
 )
 
 os.makedirs("data/pics", exist_ok=True)
 app.mount("/data", StaticFiles(directory="data"), name="data")
 
-# Set up HTTP Basic Authentication
 security = HTTPBasic()
 
 def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
@@ -83,7 +83,6 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-# Override Swagger UI route
 @app.get("/docs", include_in_schema=False)
 def get_docs(username: str = Depends(authenticate)):
     return get_swagger_ui_html(
@@ -92,7 +91,6 @@ def get_docs(username: str = Depends(authenticate)):
         swagger_ui_parameters={"persistAuthorization": True}
     )
 
-# Optional: Protect the ReDoc route too
 @app.get("/redoc", include_in_schema=False)
 def get_redoc(username: str = Depends(authenticate)):
     return get_redoc_html(openapi_url=app.openapi_url, title="ReDoc")
@@ -106,7 +104,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(LogProcessAndTime)
-app.include_router(router)
-app.include_router(cms_admin.admin)
-app.include_router(createUser.residents)
-app.include_router(logs.logs)
+app.include_router(service)
+app.include_router(admin)
+app.include_router(residents)
+app.include_router(logs)
+app.include_router(auth)

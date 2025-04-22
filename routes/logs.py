@@ -1,10 +1,9 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from fastapi.security import OAuth2PasswordBearer
 from typing import List
 from database import crud, models
 from database.database import SessionLocal, engine
 from sqlalchemy.orm import Session
-from fastapi import Depends
 import json
 import asyncio
 import os
@@ -17,7 +16,7 @@ models.Base.metadata.create_all(bind=engine)
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/login",
-    scheme_name="Bearer"  # This will show up in Swagger UI
+    scheme_name="Bearer"
 )
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -67,7 +66,7 @@ client_manager = ConnectionManager()
 # count logs
 manager_count = ConnectionManager()
 
-
+# admin - cms
 @logs.websocket("/logs/{device_id}")
 async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Depends(get_db)):
     """
@@ -128,7 +127,7 @@ async def websocket_logs(websocket: WebSocket, device_id: str, db: Session = Dep
         
 
 @logs.websocket("/client_logs")
-async def websocket_client_logs(websocket: WebSocket):
+async def stream_client_logs(websocket: WebSocket):
     """
     Endpoint gửi log đến Next.js hoặc các client khác.
     """
@@ -141,34 +140,13 @@ async def websocket_client_logs(websocket: WebSocket):
         print("Client disconnected")
 
 @logs.get("/admin/recent_logs")
-def get_recent_logs(db: Session = Depends(get_db)):
+def get_recent_logs_for_admin(db: Session = Depends(get_db)):
     return crud.recent_logs(db=db)
 
 
 @logs.get("/admin/logs_by_day")
-def get_logs_by_day(db: Session = Depends(get_db)):
+def get_daily_logs_for_admin(db: Session = Depends(get_db)):
     return crud.get_logs_by_day(db=db)
-
-@logs.get("/residents/logs_by_day")
-def get_logs_by_username(username: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    return crud.get_logs_by_username(
-        db=db,
-        username=username,
-        token=token,
-        secret_key=SECRET_KEY,
-        algorithm=ALGORITHM
-    )
-    
-@logs.get("/residents/recent_logs")
-def get_recent_logs_username(username: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    return crud.recent_logs_by_username(
-        db=db,
-        username=username,
-        token=token,
-        secret_key=SECRET_KEY,
-        algorithm=ALGORITHM
-    )
-
 
 @logs.websocket("/admin/logs_total_ws")
 async def get_stats_admin(websocket: WebSocket, db: Session = Depends(get_db)):
@@ -193,8 +171,28 @@ async def get_stats_admin(websocket: WebSocket, db: Session = Depends(get_db)):
 
 
 @logs.get("/residents/logs_total_residents")
-async def get_stats_residents(username: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def stream_log_stats_for_admin(username: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     return crud.get_stats_residents(
+        db=db,
+        username=username,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+
+@logs.get("/residents/logs_by_day")
+def get_user_logs_by_day(username: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    return crud.get_logs_by_username(
+        db=db,
+        username=username,
+        token=token,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    
+@logs.get("/residents/recent_logs")
+def get_recent_user_logs(username: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    return crud.recent_logs_by_username(
         db=db,
         username=username,
         token=token,
