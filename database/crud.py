@@ -15,7 +15,7 @@ DOMAIN = os.getenv("DOMAIN")
 # Login
 def login(db: Session, username: str, password: str, pwd_context, algorithm: str, secret_key: str, access_token_expire_minutes: int):
     # Verify account
-    account = db.query(models.Account).filter(models.Account.user == username).first()
+    account = db.query(models.Account).filter(models.Account.username == username).first()
     if not account:
         return {"success": False, "message": "Account not found"}
     
@@ -57,7 +57,7 @@ def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algori
         return None
     # Query all residents matching the username
     residents = db.query(models.Resident).filter(
-        models.Resident.user_name == username
+        models.Resident.username == username
     ).all()
         
     if residents:
@@ -70,7 +70,7 @@ def get_phone_number(db:Session, username:str ,token:str, secret_key:str, algori
 # Create account
 def create_account(db: Session, account: models.AccountData, pwd_context):
     # Check if username already exists
-    existing_account = db.query(models.Account).filter(models.Account.user == account.user).first()
+    existing_account = db.query(models.Account).filter(models.Account.username == account.username).first()
     if existing_account:
         return {"success": False, "message": "Username already exists"} 
     # Hash the password
@@ -80,10 +80,10 @@ def create_account(db: Session, account: models.AccountData, pwd_context):
     # Create new account
     db_account = models.Account(
         id=id,
-        user=account.user,
+        username=account.username,
         password=hashed_password, 
         status = True,
-        member = len(db.query(models.Resident).filter(models.Resident.user_name == account.user).all()),
+        member = len(db.query(models.Resident).filter(models.Resident.username == account.username).all()),
         created_time=int(datetime.datetime.now().timestamp()),  # Ensure timestamp is cast to an integer
         last_login=int(0)
     )
@@ -102,7 +102,7 @@ def get_all_accounts(db: Session):
     for account in accounts:
         data = {
             "id": account.id,
-            "username": account.user,
+            "username": account.username,
             "status": account.status,
             "member": account.member,
             "created_time": account.created_time,
@@ -117,7 +117,7 @@ def delete_account_by_id(db: Session, account_id: int):
         return {"success": False, "message": "Account not found"}
     
     # Delete all residents associated with the account
-    residents = db.query(models.Resident).filter(models.Resident.user_name == db_account.user).all()
+    residents = db.query(models.Resident).filter(models.Resident.username == db_account.username).all()
     for resident in residents:
         try:
             db.delete(resident)
@@ -143,7 +143,7 @@ def get_residents_data(role: str, db: Session, username: str = None, token: str 
     if role == "resident":
         if not auth_service.check_valid_token(db, token, secret_key, algorithm, username):
             return {"success": False, "message": "Invalid token"}
-        residents = db.query(models.Resident).filter(models.Resident.user_name == username).all()
+        residents = db.query(models.Resident).filter(models.Resident.username == username).all()
         if not residents:
             return {"success": False, "message": "User not found"}
     elif role == "admin":
@@ -160,7 +160,7 @@ def get_residents_data(role: str, db: Session, username: str = None, token: str 
 
         data = {
             "id": resident.id,
-            "username": resident.user_name,
+            "username": resident.username,
             "name": resident.name,
             "apartment": resident.apartment_number,
             "gender": resident.gender,
@@ -186,7 +186,7 @@ def create_new_resident(resident: models.ResidentsData, db: Session, role: str="
     # Create new user
     db_user = models.Resident(
         id=id,
-        user_name=resident.username,
+        username=resident.username,
         name=resident.name,
         apartment_number=resident.apartment_number,
         gender=resident.gender,
@@ -209,13 +209,13 @@ def delete_resident_by_id(db: Session, user_id: int, role:str="resident",token: 
         return {"success": False, "message": "User not found"}
 
     if role == "resident":
-        if not auth_service.check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
+        if not auth_service.check_valid_token(db, token, secret_key, algorithm, db_user.username):
             return {"success": False, "message": "Invalid token"}
         
     try:
         db.delete(db_user)
         db.flush()
-        db_service.update_account_member(db, auth_service.check_username_exists(db,db_user.user_name))
+        db_service.update_account_member(db, auth_service.check_username_exists(db,db_user.username))
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
@@ -229,7 +229,7 @@ def update_resident_data_by_id(db: Session, resident_id: int, user: models.Resid
         return {"success": False, "message": "User not found"}
 
     if role == "resident":
-        if not auth_service.check_valid_token(db, token, secret_key, algorithm, db_user.user_name):
+        if not auth_service.check_valid_token(db, token, secret_key, algorithm, db_user.username):
             return {"success": False, "message": "Invalid token"}
 
     
@@ -238,7 +238,7 @@ def update_resident_data_by_id(db: Session, resident_id: int, user: models.Resid
         update_data = user.dict(exclude_unset=True)
         
         # Map Pydantic field names to SQLAlchemy model field names
-        field_mapping = {"username": "user_name"}
+        field_mapping = {"username": "username"}
         
         # Update only the fields that were provided
         for key, value in update_data.items():
@@ -444,7 +444,7 @@ def get_stats_residents(db: Session, username: str, token: str = None, secret_ke
         return {"success": False, "message": "Invalid token"}
         
     # Get today's logs totals
-    total_resident = db.query(models.Resident).filter(models.Resident.user_name == username).count()
+    total_resident = db.query(models.Resident).filter(models.Resident.username == username).count()
 
     # Get today's date range
     today = datetime.date.today()
@@ -476,7 +476,7 @@ def get_stats_residents(db: Session, username: str, token: str = None, secret_ke
 def config_status_user(db: Session, username: str):
     
     # Check if the account exists
-    account = db.query(models.Account).filter(models.Account.user == username).first()
+    account = db.query(models.Account).filter(models.Account.username == username).first()
     if not account:
         return {"success": False, "message": "Account not found"}
 

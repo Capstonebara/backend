@@ -6,7 +6,7 @@ import datetime
 # import shutil
 # import glob
 def check_username_exists(db: Session, username: str):
-    account = db.query(models.Account).filter(models.Account.user == username).first()
+    account = db.query(models.Account).filter(models.Account.username == username).first()
     return account if account else False
 
 def check_id_exists(db: Session, id: int, table: str):

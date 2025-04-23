@@ -20,7 +20,7 @@ def get_id(db: Session, table: str):
     return next_id
 
 def update_account_member(db: Session, account: models.Account):
-    mem_count = len(db.query(models.Resident).filter(models.Resident.user_name == account.user).all())
+    mem_count = len(db.query(models.Resident).filter(models.Resident.username == account.username).all())
     account.member = mem_count
     db.commit()
 

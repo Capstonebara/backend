@@ -4,23 +4,11 @@ from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import DateTime
 
-
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
-    reg = Column(Boolean, index=True)
-    le = Column(Boolean, index=True)
-    tiec = Column(Boolean, index=True)
-    cahai = Column(Boolean, index=True)
-
 class Resident(Base):
     __tablename__ = "residents"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_name = Column(String, ForeignKey("accounts.user"), nullable=False, index=True)
+    username = Column(String, ForeignKey("accounts.username"), nullable=False, index=True)
     name = Column(String, nullable=False, index=True)
     apartment_number = Column(String, nullable=False, index=True)
     gender = Column(String, index=True)
@@ -31,7 +19,7 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id = Column(Integer, primary_key=True, index=True)
-    user = Column(String, unique=True, index=True)
+    username = Column(String, unique=True, index=True)
     password = Column(String, index=True)
     status = Column(Boolean, index=True)
     member = Column(Integer, index=True)
@@ -39,7 +27,7 @@ class Account(Base):
     last_login = Column(Integer, index=True)
 
 class AccountData(BaseModel):
-    user: str
+    username: str
     password: str
 
 class ResidentsData(BaseModel):
