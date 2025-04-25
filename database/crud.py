@@ -111,6 +111,23 @@ def get_all_accounts(db: Session):
         info.append(data)
     return info
 
+def change_password_for_admin(db: Session, username: str, new_password: str, pwd_context):
+    # Check if the account exists
+    account = db.query(models.Account).filter(models.Account.username == username).first()
+    if not account:
+        return {"success": False, "message": "Account not found"}
+    
+    try:
+        # Hash the new password
+        hashed_password = pwd_context.hash(new_password)
+        # Update password
+        account.password = hashed_password
+        db.commit()
+        return {"success": True, "message": "Password updated successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}
+
 def delete_account_by_id(db: Session, account_id: int):
     db_account = auth_service.check_id_exists(db, account_id, "accounts")
     if not db_account:
@@ -151,12 +168,26 @@ def get_residents_data(role: str, db: Session, username: str = None, token: str 
 
     info = []
     for resident in residents:
+        # Check if resident has a profile picture
+        if not os.path.exists(f'./data/pics/{resident.id}'):
+            # Delete resident from database
+            try:
+                db.delete(resident)
+                db.flush()
+                # Update account member count
+                account = auth_service.check_username_exists(db, resident.username)
+                if account:
+                    db_service.update_account_member(db, account)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"Error deleting resident {resident.id}: {str(e)}")
+            # Skip adding to info list
+            continue
 
+        # If resident has a picture, proceed as before
         photo_path = f'/data/pics/{resident.id}/main.jpg'
-        if os.path.exists(f'./data/pics/{resident.id}'):
-            photo_url = DOMAIN + photo_path
-        else:
-            photo_url = ""
+        photo_url = DOMAIN + photo_path
 
         data = {
             "id": resident.id,
@@ -499,3 +530,25 @@ def get_resident_by_id(id: int, db: Session):
     if not resident:
         return {"success": False, "message": "Resident not found"}
     return resident
+
+def change_password_for_resident(db: Session, username: str,old_password:str, new_password: str, pwd_context):
+    # Check if the account exists
+    account = db.query(models.Account).filter(models.Account.username == username).first()
+    if not account:
+        return {"success": False, "message": "Account not found"}
+    
+    try:
+        # Verify old password
+
+        if not pwd_context.verify(old_password, account.password):
+            return {"success": False, "message": "Incorrect password"}
+        
+        # Hash the new password
+        hashed_password = pwd_context.hash(new_password)
+        # Update password
+        account.password = hashed_password
+        db.commit()
+        return {"success": True, "message": "Password updated successfully"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": str(e)}

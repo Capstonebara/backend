@@ -71,3 +71,24 @@ def register_account(account: models.AccountData, db: Session = Depends(get_db))
         db=db,  
         pwd_context=pwd_context
     )
+
+
+@auth.get("/change_password_admin")
+def change_password_for_admin( username: str, new_password: str, db: Session = Depends(get_db)):
+    return crud.change_password_for_admin(
+        db=db,
+        username=username,
+        new_password=new_password,
+        pwd_context=pwd_context
+    )
+
+
+@auth.get("/change_password_resident")
+def change_password_for_resident( username: str, old_password: str, new_password: str, db: Session = Depends(get_db)):
+    return crud.change_password_for_resident(
+        db=db,
+        username=username,
+        old_password=old_password,
+        new_password=new_password,
+        pwd_context=pwd_context
+    )   
