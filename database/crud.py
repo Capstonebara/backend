@@ -283,23 +283,37 @@ def update_resident_data_by_id(db: Session, resident_id: int, user: models.Resid
         return {"success": False, "message": str(e)}
     
 
-def add_logs_to_db(db: Session, username: str, device_id: str, name: str, timestamp: int, type: str, apartment: str):
+def add_logs_to_db(db: Session, id: int, device_id: str, timestamp: int, type: str):
 
-    id = db_service.get_id(db, "logs")
+    user = db.query(models.Resident).filter(models.Resident.id == id).first()
+
+    idx_log = db_service.get_id(db, "logs")
 
     db_log = models.Logs(
-        id=id,
-        username=username,
+        id=idx_log,
+        username=user.username,
         device_id=device_id,
-        name=name,
+        name=user.name,
         timestamp=timestamp,
         type=type,
-        apartment=apartment
+        apartment=user.apartment_number
     )
     try:
         db.add(db_log)
         db.commit()
-        return {"id": db_log.id, "captured": DOMAIN + f"/data/logs/{db_log.id}.jpg"}
+        return {
+            "success": True,
+            "log": {
+                "id": db_log.id,
+                "username": db_log.username,
+                "device_id": db_log.device_id,
+                "name": db_log.name,
+                "timestamp": db_log.timestamp,
+                "type": db_log.type,
+                "apartment": db_log.apartment,
+                "captured": DOMAIN + f"/data/logs/{db_log.id}.jpg"
+            }
+        }
     except Exception as e:
         db.rollback()
         return {"success": False, "message": str(e)}
@@ -318,6 +332,7 @@ def recent_logs(db: Session, day: datetime.date = None):
     for log in logs:
         data = {
             "id": log.id,
+            "username": log.username,
             "device_id": log.device_id,
             "name": log.name,
             "timestamp": log.timestamp,
