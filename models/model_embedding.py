@@ -3,6 +3,7 @@ import torch
 import torchvision.transforms as transforms
 from .EdgeFaceKan import EdgeFaceKAN
 import cv2
+import numpy as np
 
 # Sử dụng mô hình pre-trained FaceNet
 # class EmbeddingModel:
@@ -55,4 +56,4 @@ class EmbeddingModel:
         with torch.no_grad():
             embedding = self.model(image_tensor)
 
-        return embedding.cpu().numpy().flatten().tolist()
+        return embedding.cpu().numpy().flatten().astype(np.float32)

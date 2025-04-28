@@ -8,7 +8,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from database import crud
 from sqlalchemy.orm import Session
 from database.database import SessionLocal
-from services.service import process_zip, process_embedding, calc_md5
+from services.service import process_zip, process_embedding, calc_md5, process_embedding_bin, process_embedding_bin_allinone, save_embedding_with_header_auto_embed
 
 def get_db():
     db = SessionLocal()
@@ -20,7 +20,7 @@ def get_db():
 service = APIRouter()
 
 @service.post("/embed")
-async def embed(file: UploadFile = File(...), folder_id: int = None):
+async def embed(file: UploadFile = File(...), folder_id: int = None, db: Session = Depends(get_db)):
     # Create necessary folders if they don't exist
     zip_folder = os.path.join("data", "zips")
     pic_folder = os.path.join("data", "pics")
@@ -59,7 +59,13 @@ async def embed(file: UploadFile = File(...), folder_id: int = None):
     
     # Generate embeddings only for the extracted folder
     try:
-        embedding_result = process_embedding(pic_folder, embed_folder, extracted_folder)
+
+        # get name by id
+        resident = crud.get_resident_by_id(folder_id, db)
+        
+        # embedding_result = process_embedding(pic_folder, embed_folder, extracted_folder)
+        embedding_result = save_embedding_with_header_auto_embed(pic_folder, embed_folder, extracted_folder, int(folder_id), resident.name)
+
         if not embedding_result:
             return {
                 "ok": False,
